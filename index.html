@@ -102,17 +102,7 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
 .fb.dup{background:rgba(245,200,66,.1);color:var(--accent);border:1px solid rgba(245,200,66,.25);}
 .fb.bad{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.25);}
 
-/* CAMERA */
-.cam-box{border-radius:10px;overflow:hidden;background:#000;aspect-ratio:16/9;position:relative;display:none;margin-bottom:8px;}
-.cam-box video{width:100%;height:100%;object-fit:cover;display:block;}
-.cam-ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
-.scan-rect{width:180px;height:60px;border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 2000px rgba(0,0,0,.4);position:relative;}
-.scan-line{position:absolute;left:0;right:0;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:sl 1.8s ease-in-out infinite;}
-@keyframes sl{0%{top:0}50%{top:calc(100% - 2px)}100%{top:0}}
-.cam-hint{margin-top:8px;color:var(--accent);font-size:.67rem;font-family:'Space Mono',monospace;text-shadow:0 0 8px rgba(245,200,66,.7);}
-.cam-status{font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);text-align:center;padding:3px 0;min-height:18px;}
-.cam-note{font-size:.65rem;color:var(--muted);font-family:'Space Mono',monospace;line-height:1.55;margin-top:7px;}
-.cam-note code{color:var(--accent);background:var(--s2);border-radius:4px;padding:1px 5px;}
+
 
 /* BUTTONS */
 .btn{padding:9px 16px;border:none;border-radius:9px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;cursor:pointer;transition:all .11s;letter-spacing:.3px;}
@@ -234,26 +224,6 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
     </div>
 
     <div class="card">
-      <div class="card-title">📷 Camera Scan</div>
-      <div class="cam-box" id="cbox">
-        <video id="cvid" autoplay playsinline muted></video>
-        <div class="cam-ov">
-          <div class="scan-rect"><div class="scan-line"></div></div>
-          <div class="cam-hint">Point at sticker number</div>
-        </div>
-      </div>
-      <div class="cam-status" id="cstat">Camera off</div>
-      <div class="row" style="margin-top:7px;">
-        <button class="btn btn-s" id="cbtn" onclick="toggleCam()">📷 Start Camera</button>
-        <button class="btn btn-p" id="capbtn" onclick="captureOCR()" style="display:none">Capture</button>
-      </div>
-      <div class="cam-note">
-        ⚠️ Camera requires HTTP. Open with:<br>
-        <code>python -m http.server 8080</code> or VS Code Live Server.
-      </div>
-    </div>
-
-    <div class="card">
       <div class="card-title">📋 Bulk Import (comma/space separated)</div>
       <textarea class="bta" id="bulk" rows="3" placeholder="12, 45, 88, 120, 341..."></textarea>
       <div class="row" style="margin-top:7px;">
@@ -354,7 +324,6 @@ for(let i=0;i<=978;i+=18) HOLOS.add(i);
 let col = {};          // int -> count
 let buf = '';          // numpad buffer
 let gf = 'all';        // grid filter
-let camS = null;       // sticker cam stream
 let tradS = null;      // trade cam stream
 let tradRaf = null;
 
@@ -562,60 +531,6 @@ function doReset(){
   if(!confirm('Reset ALL progress? This cannot be undone.')) return;
   col={}; save(); updateStats(); renderGrid(); renderDupes();
   toast('Collection reset','warn');
-}
-
-// ───────────────────────────────────────────────
-// CAMERA — OCR
-// ───────────────────────────────────────────────
-async function toggleCam(){
-  const area = document.getElementById('cbox');
-  const btn = document.getElementById('cbtn');
-  const capBtn = document.getElementById('capbtn');
-  const stat = document.getElementById('cstat');
-  if(camS){
-    camS.getTracks().forEach(t=>t.stop()); camS=null;
-    area.style.display='none'; btn.textContent='📷 Start Camera';
-    capBtn.style.display='none'; stat.textContent='Camera off'; return;
-  }
-  try{
-    camS = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:1280}}
-    });
-    document.getElementById('cvid').srcObject=camS;
-    area.style.display='block';
-    btn.textContent='⏹ Stop'; capBtn.style.display='';
-    stat.textContent='Press Capture to read number';
-  }catch(e){
-    stat.textContent='❌ Camera unavailable — needs HTTP server';
-    toast('Camera blocked on file://','err');
-  }
-}
-
-async function captureOCR(){
-  const vid=document.getElementById('cvid');
-  const stat=document.getElementById('cstat');
-  if(!vid.videoWidth){ toast('Camera not ready','warn'); return; }
-  const c=document.createElement('canvas');
-  c.width=vid.videoWidth; c.height=vid.videoHeight;
-  c.getContext('2d').drawImage(vid,0,0);
-
-  if(window.Tesseract){
-    stat.textContent='Reading…';
-    try{
-      const {data:{text}}=await Tesseract.recognize(c,'eng',{tessedit_char_whitelist:'0123456789'});
-      const found=[...text.matchAll(/\d{1,3}/g)].map(m=>parseInt(m[0])).filter(n=>n>=0&&n<=978);
-      if(found.length){
-        buf=String(found[0]); redisplay();
-        stat.textContent=`Detected: #${String(found[0]).padStart(3,'0')} — press ADD`;
-      } else {
-        stat.textContent='No number detected — enter manually';
-      }
-    }catch(e){ stat.textContent='OCR failed — enter manually'; }
-  } else {
-    // No Tesseract: show snapshot so user can read and type it
-    const img=c.toDataURL('image/jpeg',.7);
-    stat.innerHTML=`<img src="${img}" style="max-height:80px;border-radius:6px;display:block;margin:3px auto;"><span style="display:block;text-align:center;">Type the number using the numpad</span>`;
-  }
 }
 
 // ───────────────────────────────────────────────
