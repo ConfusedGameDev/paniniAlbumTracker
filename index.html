@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Panini Tracker 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<style>
+:root{
+  --bg:#111016;--s1:#1c1a28;--s2:#252336;--s3:#2e2b44;
+  --border:#363052;--accent:#f5c842;--accent2:#ff6b35;
+  --purple:#a78bfa;--blue:#60a5fa;--green:#4ade80;--red:#f87171;
+  --text:#ede9f8;--muted:#7b6fa0;--r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;
+  display:flex;flex-direction:column;max-width:480px;margin:0 auto;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 40% at 15% 0%,rgba(167,139,250,.09) 0%,transparent 60%),
+    radial-gradient(ellipse 50% 30% at 85% 90%,rgba(245,200,66,.06) 0%,transparent 60%);
+}
+
+/* HEADER */
+header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
+.logo{
+  font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:5px;line-height:1;
+  background:linear-gradient(120deg,#a78bfa,#60a5fa,#f5c842,#ff6b35);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.logo-sub{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:5px;margin-top:1px;}
+.prog-row{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px;}
+.prog-pct{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--accent);line-height:1;}
+.prog-detail{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);}
+.prog-wrap{height:5px;background:var(--s2);border-radius:99px;overflow:hidden;margin-top:5px;}
+.prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#a78bfa,#f5c842);transition:width .5s cubic-bezier(.4,0,.2,1);}
+.mstats{display:flex;gap:5px;margin-top:7px;margin-bottom:10px;}
+.ms{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:6px 2px;text-align:center;}
+.ms-n{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--text);line-height:1;}
+.ms-l{font-size:.55rem;color:var(--muted);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.5px;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;padding:0 16px;margin-bottom:8px;flex-shrink:0;position:relative;z-index:10;}
+.tab{
+  flex:1;padding:7px 2px;border:1px solid var(--border);
+  background:var(--s1);color:var(--muted);
+  font-family:'Nunito',sans-serif;font-weight:700;font-size:.68rem;
+  border-radius:9px;cursor:pointer;transition:all .12s;
+  text-transform:uppercase;letter-spacing:.5px;
+}
+.tab.active{background:var(--s2);color:var(--text);border-color:var(--purple);}
+
+/* SCROLL */
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;z-index:10;padding:0 16px 28px;-webkit-overflow-scrolling:touch;}
+.scroll::-webkit-scrollbar{width:3px;}
+.scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* PANELS */
+.panel{display:none;}.panel.active{display:block;}
+
+/* CARD */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:11px;}
+.card-title{font-family:'Space Mono',monospace;font-size:.6rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:9px;}
+
+/* NUMPAD */
+.display{
+  background:var(--s2);border:2px solid var(--border);border-radius:10px;
+  font-family:'Bebas Neue',sans-serif;font-size:3rem;letter-spacing:8px;
+  color:var(--text);text-align:center;padding:9px;min-height:66px;
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .18s;margin-bottom:9px;
+}
+.display.ok{border-color:var(--green);}
+.display.bad{border-color:var(--red);}
+.display.dup{border-color:var(--accent);}
+.cursor{display:inline-block;width:3px;height:2.4rem;background:var(--accent);margin-left:3px;animation:blink .9s step-end infinite;vertical-align:middle;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:9px;}
+.nk{
+  aspect-ratio:1.25;border:1px solid var(--border);border-radius:10px;
+  background:var(--s2);color:var(--text);
+  font-family:'Nunito',sans-serif;font-weight:900;font-size:1.25rem;
+  cursor:pointer;transition:all .1s;
+  display:flex;align-items:center;justify-content:center;
+}
+.nk:active{transform:scale(.92);background:var(--s3);}
+.nk.zero{grid-column:2;}
+.nk.del{background:rgba(248,113,113,.1);color:var(--red);border-color:rgba(248,113,113,.3);}
+.nk.go{background:var(--accent);color:#0f0e13;border-color:var(--accent);font-size:.95rem;letter-spacing:1px;}
+.nk.go:active{background:#ffd84d;}
+
+.fb{border-radius:8px;padding:8px 12px;font-weight:700;font-size:.8rem;display:none;align-items:center;gap:8px;margin-top:5px;}
+.fb.show{display:flex;}
+.fb.new{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.25);}
+.fb.dup{background:rgba(245,200,66,.1);color:var(--accent);border:1px solid rgba(245,200,66,.25);}
+.fb.bad{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.25);}
+
+/* CAMERA */
+.cam-box{border-radius:10px;overflow:hidden;background:#000;aspect-ratio:16/9;position:relative;display:none;margin-bottom:8px;}
+.cam-box video{width:100%;height:100%;object-fit:cover;display:block;}
+.cam-ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
+.scan-rect{width:180px;height:60px;border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 2000px rgba(0,0,0,.4);position:relative;}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:sl 1.8s ease-in-out infinite;}
+@keyframes sl{0%{top:0}50%{top:calc(100% - 2px)}100%{top:0}}
+.cam-hint{margin-top:8px;color:var(--accent);font-size:.67rem;font-family:'Space Mono',monospace;text-shadow:0 0 8px rgba(245,200,66,.7);}
+.cam-status{font-family:'Space Mono',monospace;font-size:.68rem;color:var(--muted);text-align:center;padding:3px 0;min-height:18px;}
+.cam-note{font-size:.65rem;color:var(--muted);font-family:'Space Mono',monospace;line-height:1.55;margin-top:7px;}
+.cam-note code{color:var(--accent);background:var(--s2);border-radius:4px;padding:1px 5px;}
+
+/* BUTTONS */
+.btn{padding:9px 16px;border:none;border-radius:9px;font-family:'Nunito',sans-serif;font-weight:800;font-size:.82rem;cursor:pointer;transition:all .11s;letter-spacing:.3px;}
+.btn:active{transform:scale(.96);}
+.btn-p{background:var(--accent);color:#0f0e13;}
+.btn-p:hover{background:#ffd84d;}
+.btn-s{background:var(--s2);color:var(--text);border:1px solid var(--border);}
+.btn-g{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-d{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.25);}
+.row{display:flex;gap:6px;}.row .btn{flex:1;}
+
+/* BULK */
+.bta{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:'Space Mono',monospace;font-size:.73rem;padding:9px;outline:none;resize:none;transition:border-color .2s;}
+.bta:focus{border-color:var(--purple);}
+
+/* GRID */
+.gfilters{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:9px;}
+.fb2{padding:4px 10px;border-radius:99px;border:1px solid var(--border);background:var(--s1);color:var(--muted);font-size:.62rem;font-family:'Space Mono',monospace;cursor:pointer;transition:all .11s;}
+.fb2.active{background:var(--accent);color:#0f0e13;border-color:var(--accent);font-weight:700;}
+.gsearch{width:100%;background:var(--s1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:.76rem;padding:7px 11px;outline:none;margin-bottom:9px;transition:border-color .2s;}
+.gsearch:focus{border-color:var(--purple);}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:3px;}
+.sc{
+  aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-family:'Space Mono',monospace;font-size:.48rem;font-weight:700;
+  cursor:pointer;transition:all .11s;border:1px solid transparent;
+  position:relative;user-select:none;
+}
+.sc.miss{background:var(--s1);color:var(--muted);border-color:var(--border);}
+.sc.miss:hover{border-color:var(--accent);color:var(--accent);transform:scale(1.09);}
+.sc.got{background:rgba(74,222,128,.12);color:var(--green);border-color:rgba(74,222,128,.3);}
+.sc.holo{background:linear-gradient(135deg,rgba(167,139,250,.18),rgba(96,165,250,.18),rgba(52,211,153,.18));border-color:rgba(167,139,250,.4);color:#c4b5fd;}
+.sc.holo.got{background:linear-gradient(135deg,rgba(167,139,250,.35),rgba(96,165,250,.35),rgba(52,211,153,.35));border-color:rgba(167,139,250,.7);}
+.sc.dup::after{content:attr(data-c);position:absolute;top:-4px;right:-4px;background:var(--accent2);color:#fff;border-radius:99px;font-size:.46rem;min-width:12px;height:12px;display:flex;align-items:center;justify-content:center;padding:0 2px;font-weight:900;font-family:'Nunito',sans-serif;}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.3)}100%{transform:scale(1)}}
+.pop{animation:pop .2s ease;}
+
+/* REPEATS */
+.rlist{display:flex;flex-direction:column;gap:5px;}
+.ri{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:9px;}
+.ri-n{font-family:'Bebas Neue',sans-serif;font-size:1.25rem;color:var(--accent);min-width:36px;}
+.ri-tag{flex:1;font-size:.7rem;color:var(--muted);font-family:'Space Mono',monospace;}
+.ri-badge{background:var(--accent2);color:#fff;border-radius:99px;font-size:.62rem;font-weight:900;padding:2px 7px;font-family:'Nunito',sans-serif;}
+.ri-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:4px;border-radius:5px;transition:color .11s;}
+.ri-del:hover{color:var(--red);}
+.empty{color:var(--muted);font-family:'Space Mono',monospace;font-size:.76rem;text-align:center;padding:36px 0;}
+
+/* TRADE */
+.tsec{display:flex;flex-direction:column;gap:10px;}
+#qrbox{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:9px;margin-bottom:9px;min-height:56px;align-items:center;}
+.chips{display:flex;flex-wrap:wrap;gap:3px;max-height:86px;overflow-y:auto;}
+.chip{padding:3px 7px;border-radius:99px;font-size:.58rem;font-family:'Space Mono',monospace;font-weight:700;}
+.chip-m{background:rgba(248,113,113,.12);color:var(--red);border:1px solid rgba(248,113,113,.25);}
+.chip-d{background:rgba(245,200,66,.12);color:var(--accent);border:1px solid rgba(245,200,66,.25);}
+.chip-g{background:rgba(74,222,128,.12);color:var(--green);border:1px solid rgba(74,222,128,.25);}
+.mcard{background:var(--s2);border-radius:9px;padding:9px 11px;margin-top:5px;}
+.mcard-title{font-size:.6rem;font-family:'Space Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;}
+.paste-z{border:2px dashed var(--border);border-radius:9px;padding:18px;text-align:center;color:var(--muted);font-size:.72rem;font-family:'Space Mono',monospace;cursor:pointer;transition:all .13s;margin-bottom:7px;}
+.paste-z:hover{border-color:var(--accent);color:var(--accent);}
+.sec-lbl{font-family:'Space Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin:9px 0 5px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(65px);background:var(--s2);border:1px solid var(--border);border-radius:99px;padding:8px 18px;font-size:.8rem;font-weight:700;z-index:9999;transition:transform .27s cubic-bezier(.4,0,.2,1);white-space:nowrap;pointer-events:none;max-width:90vw;text-align:center;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{color:var(--green);}.toast.warn{color:var(--accent);}.toast.info{color:var(--blue);}.toast.err{color:var(--red);}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+    <div>
+      <div class="logo">Panini</div>
+      <div class="logo-sub">World Cup 2026 · Stickers 0–978</div>
+    </div>
+    <div style="text-align:right;padding-bottom:3px;">
+      <div class="prog-pct" id="pct">0.0%</div>
+      <div class="prog-detail" id="smain">0 / 979</div>
+    </div>
+  </div>
+  <div class="prog-wrap"><div class="prog-fill" id="pbar" style="width:0%"></div></div>
+  <div class="mstats">
+    <div class="ms"><div class="ms-n" id="ms-g">0</div><div class="ms-l">Got</div></div>
+    <div class="ms"><div class="ms-n" id="ms-mi">979</div><div class="ms-l">Missing</div></div>
+    <div class="ms"><div class="ms-n" id="ms-du">0</div><div class="ms-l">Dupes</div></div>
+    <div class="ms"><div class="ms-n" id="ms-ho">0</div><div class="ms-l">Holos</div></div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="goTab('add')">➕ Add</button>
+  <button class="tab" onclick="goTab('album')">📖 Album</button>
+  <button class="tab" onclick="goTab('dupes')">♻️ Dupes</button>
+  <button class="tab" onclick="goTab('trade')">🤝 Trade</button>
+</div>
+
+<div class="scroll">
+
+  <!-- ══ ADD ══ -->
+  <div class="panel active" id="panel-add">
+    <div class="card">
+      <div class="card-title">⌨️ Enter Sticker Number</div>
+      <div class="display" id="disp"><span id="dval">---</span><span class="cursor"></span></div>
+      <div class="numpad">
+        <button class="nk" onclick="nk('1')">1</button>
+        <button class="nk" onclick="nk('2')">2</button>
+        <button class="nk" onclick="nk('3')">3</button>
+        <button class="nk" onclick="nk('4')">4</button>
+        <button class="nk" onclick="nk('5')">5</button>
+        <button class="nk" onclick="nk('6')">6</button>
+        <button class="nk" onclick="nk('7')">7</button>
+        <button class="nk" onclick="nk('8')">8</button>
+        <button class="nk" onclick="nk('9')">9</button>
+        <button class="nk del" onclick="nk('del')">⌫</button>
+        <button class="nk zero" onclick="nk('0')">0</button>
+        <button class="nk go" onclick="nk('add')">ADD</button>
+      </div>
+      <div class="fb" id="fb"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📷 Camera Scan</div>
+      <div class="cam-box" id="cbox">
+        <video id="cvid" autoplay playsinline muted></video>
+        <div class="cam-ov">
+          <div class="scan-rect"><div class="scan-line"></div></div>
+          <div class="cam-hint">Point at sticker number</div>
+        </div>
+      </div>
+      <div class="cam-status" id="cstat">Camera off</div>
+      <div class="row" style="margin-top:7px;">
+        <button class="btn btn-s" id="cbtn" onclick="toggleCam()">📷 Start Camera</button>
+        <button class="btn btn-p" id="capbtn" onclick="captureOCR()" style="display:none">Capture</button>
+      </div>
+      <div class="cam-note">
+        ⚠️ Camera requires HTTP. Open with:<br>
+        <code>python -m http.server 8080</code> or VS Code Live Server.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Bulk Import (comma/space separated)</div>
+      <textarea class="bta" id="bulk" rows="3" placeholder="12, 45, 88, 120, 341..."></textarea>
+      <div class="row" style="margin-top:7px;">
+        <button class="btn btn-s" onclick="bulkImport()">Import</button>
+        <button class="btn btn-d" onclick="doReset()">Reset All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ALBUM ══ -->
+  <div class="panel" id="panel-album">
+    <div class="gfilters">
+      <button class="fb2 active" onclick="setF('all',this)">All</button>
+      <button class="fb2" onclick="setF('miss',this)">Missing</button>
+      <button class="fb2" onclick="setF('got',this)">Got</button>
+      <button class="fb2" onclick="setF('holo',this)">✨ Holo</button>
+      <button class="fb2" onclick="setF('dup',this)">Dupes</button>
+    </div>
+    <input type="text" class="gsearch" id="gs" placeholder="Search #..." oninput="renderGrid()">
+    <div class="sgrid" id="sgrid"></div>
+  </div>
+
+  <!-- ══ DUPES ══ -->
+  <div class="panel" id="panel-dupes">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+      <div class="sec-lbl" style="margin:0;">Duplicate stickers</div>
+      <button class="btn btn-g" style="font-size:.62rem;padding:5px 9px;" onclick="copyDupes()">Copy List</button>
+    </div>
+    <div class="rlist" id="rlist"></div>
+    <div id="nodup" class="empty" style="display:none;">No duplicates yet 🙌</div>
+  </div>
+
+  <!-- ══ TRADE ══ -->
+  <div class="panel" id="panel-trade">
+    <div class="tsec">
+      <div class="card">
+        <div class="card-title">🔁 Your Trade QR Code</div>
+        <div id="qrbox"><span style="color:var(--muted);font-size:.68rem;font-family:'Space Mono',monospace;">Press Generate</span></div>
+        <div class="row">
+          <button class="btn btn-p" onclick="genQR()">Generate QR</button>
+          <button class="btn btn-s" onclick="copyCode()">Copy Code</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📷 Scan Friend's QR</div>
+        <div class="cam-box" id="tcbox">
+          <video id="tvid" autoplay playsinline muted></video>
+          <div class="cam-ov">
+            <div class="scan-rect" style="width:200px;height:200px;"><div class="scan-line" style="animation-duration:2s;"></div></div>
+            <div class="cam-hint">Scanning for QR…</div>
+          </div>
+        </div>
+        <div class="cam-status" id="tstat">Camera off</div>
+        <button class="btn btn-s" style="width:100%;margin-bottom:7px;" onclick="toggleTradeCam()">📷 Open Camera</button>
+        <div class="paste-z" onclick="pasteCode()">📋 Tap to paste friend's trade code</div>
+        <input type="file" id="qrfile" accept="image/*" style="display:none" onchange="readQRFile(event)">
+        <button class="btn btn-g" style="width:100%;font-size:.72rem;" onclick="document.getElementById('qrfile').click()">Upload QR Image</button>
+      </div>
+
+      <div class="card" id="matchcard" style="display:none;">
+        <div class="card-title">🎯 Trade Match!</div>
+        <div class="mcard">
+          <div class="mcard-title">You give them (your dupes they need)</div>
+          <div class="chips" id="cgive"></div>
+        </div>
+        <div class="mcard" style="margin-top:5px;">
+          <div class="mcard-title">They give you (their dupes you need)</div>
+          <div class="chips" id="cget"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Trade Summary</div>
+        <div class="sec-lbl">Missing</div>
+        <div class="chips" id="summ"></div>
+        <div class="sec-lbl" style="margin-top:9px;">Available (your dupes)</div>
+        <div class="chips" id="sumd"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /scroll -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ───────────────────────────────────────────────
+// CONSTANTS
+// ───────────────────────────────────────────────
+const TOTAL = 979;
+const HOLOS = new Set();
+for(let i=0;i<=978;i+=18) HOLOS.add(i);
+
+// ───────────────────────────────────────────────
+// STATE
+// ───────────────────────────────────────────────
+let col = {};          // int -> count
+let buf = '';          // numpad buffer
+let gf = 'all';        // grid filter
+let camS = null;       // sticker cam stream
+let tradS = null;      // trade cam stream
+let tradRaf = null;
+
+// ───────────────────────────────────────────────
+// PERSIST
+// ───────────────────────────────────────────────
+function save(){ localStorage.setItem('pn26', JSON.stringify(col)); }
+function load(){
+  try{
+    const r = localStorage.getItem('pn26');
+    if(!r) return;
+    const raw = JSON.parse(r);
+    col = {};
+    // normalize keys to int
+    for(const k in raw) col[parseInt(k)] = raw[k];
+  }catch(e){}
+}
+
+// ───────────────────────────────────────────────
+// NUMPAD
+// ───────────────────────────────────────────────
+function nk(v){
+  if(v==='del'){
+    buf = buf.slice(0,-1);
+    redisplay();
+  } else if(v==='add'){
+    commit();
+  } else {
+    if(buf.length>=3) return;
+    buf += v;
+    redisplay();
+    if(buf.length===3){
+      const n = parseInt(buf);
+      if(n>=0 && n<=978) setTimeout(commit, 150);
+    }
+  }
+}
+
+function redisplay(){
+  const dv = document.getElementById('dval');
+  const box = document.getElementById('disp');
+  if(!buf){ dv.textContent='---'; box.className='display'; return; }
+  dv.textContent = buf.padStart(3,'·');
+  if(buf.length===3){
+    const n = parseInt(buf);
+    if(n<0||n>978) box.className='display bad';
+    else if(col[n]>0) box.className='display dup';
+    else box.className='display ok';
+  } else {
+    box.className='display';
+  }
+}
+
+function commit(){
+  const n = parseInt(buf);
+  buf = '';
+  redisplay();
+  reg(n);
+}
+
+// keyboard
+document.addEventListener('keydown', e=>{
+  if(!document.getElementById('panel-add').classList.contains('active')) return;
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT') return;
+  if(e.key>='0'&&e.key<='9') nk(e.key);
+  else if(e.key==='Backspace') nk('del');
+  else if(e.key==='Enter'||e.key===' ') nk('add');
+});
+
+// ───────────────────────────────────────────────
+// REGISTER
+// ───────────────────────────────────────────────
+function reg(n){
+  if(isNaN(n)||n<0||n>978){ showFb('bad','❌ Invalid (0–978)'); return; }
+  const had = col[n]>0;
+  col[n] = (col[n]||0)+1;
+  save(); updateStats();
+  const lbl = String(n).padStart(3,'0');
+  const holo = HOLOS.has(n);
+  if(had){
+    showFb('dup', `🔁 #${lbl} → dupes ×${col[n]}${holo?' ✨':''}`);
+    toast(`Dupe #${lbl} ×${col[n]}`,'warn');
+  } else {
+    showFb('new', `✅ #${lbl} collected!${holo?' ✨ HOLOGRAM!':''}`);
+    toast(`Got #${lbl}!${holo?' ✨':''}`,'ok');
+  }
+  if(isActive('album')) renderGrid();
+  if(isActive('dupes')) renderDupes();
+}
+
+// ───────────────────────────────────────────────
+// STATS
+// ───────────────────────────────────────────────
+function updateStats(){
+  const got = Object.keys(col).length;
+  const miss = TOTAL - got;
+  const dups = Object.values(col).reduce((a,v)=>a+Math.max(0,v-1),0);
+  const holos = Object.keys(col).filter(k=>HOLOS.has(parseInt(k))).length;
+  const pct = (got/TOTAL*100).toFixed(1);
+  document.getElementById('pct').textContent = pct+'%';
+  document.getElementById('pbar').style.width = pct+'%';
+  document.getElementById('smain').textContent = `${got} / ${TOTAL}`;
+  document.getElementById('ms-g').textContent = got;
+  document.getElementById('ms-mi').textContent = miss;
+  document.getElementById('ms-du').textContent = dups;
+  document.getElementById('ms-ho').textContent = holos;
+  updateSummary();
+}
+
+// ───────────────────────────────────────────────
+// GRID
+// ───────────────────────────────────────────────
+function renderGrid(){
+  const q = document.getElementById('gs').value.trim();
+  const cells = [];
+  for(let i=0;i<=978;i++){
+    const c=col[i]||0, got=c>0, holo=HOLOS.has(i), dup=c>1;
+    const lbl = String(i).padStart(3,'0');
+    if(q && !lbl.includes(q)) continue;
+    if(gf==='miss' && got) continue;
+    if(gf==='got' && !got) continue;
+    if(gf==='holo' && !holo) continue;
+    if(gf==='dup' && !dup) continue;
+    let cls='sc';
+    if(holo) cls+=' holo';
+    cls += got?' got':' miss';
+    if(dup) cls+=' dup';
+    cells.push(`<div class="${cls}"${dup?` data-c="${c}"`:''} title="${holo?'✨ ':''} #${lbl}${got?' ✓':''}" onclick="cellTap(${i},this)">${lbl}</div>`);
+  }
+  document.getElementById('sgrid').innerHTML = cells.join('');
+}
+
+function cellTap(n,el){
+  col[n]=(col[n]||0)+1;
+  save(); updateStats();
+  el.classList.add('pop');
+  setTimeout(()=>el.classList.remove('pop'),220);
+  toast(col[n]===1?`Got #${String(n).padStart(3,'0')}!`:`Dupe #${String(n).padStart(3,'0')} ×${col[n]}`
+    ,col[n]===1?'ok':'warn');
+  renderGrid();
+  if(isActive('dupes')) renderDupes();
+}
+
+function setF(f,btn){
+  gf=f;
+  document.querySelectorAll('.fb2').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGrid();
+}
+
+// ───────────────────────────────────────────────
+// DUPES
+// ───────────────────────────────────────────────
+function renderDupes(){
+  const dups = Object.entries(col).filter(([,v])=>v>1).sort((a,b)=>+a[0]-+b[0]);
+  const list = document.getElementById('rlist');
+  const none = document.getElementById('nodup');
+  if(!dups.length){ list.innerHTML=''; none.style.display='block'; return; }
+  none.style.display='none';
+  list.innerHTML = dups.map(([k,v])=>{
+    const n=parseInt(k), lbl=String(n).padStart(3,'0');
+    return `<div class="ri">
+      <div class="ri-n">${lbl}</div>
+      <div class="ri-tag">${HOLOS.has(n)?'✨ Hologram':'Base sticker'}</div>
+      <div class="ri-badge">×${v-1} extra</div>
+      <button class="ri-del" onclick="removeOne(${n})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function removeOne(n){
+  if(!col[n]) return;
+  col[n]--;
+  if(col[n]<=0) delete col[n];
+  save(); updateStats(); renderDupes();
+  if(isActive('album')) renderGrid();
+  toast(`Removed one #${String(n).padStart(3,'0')}`,'info');
+}
+
+function copyDupes(){
+  const txt = Object.entries(col).filter(([,v])=>v>1)
+    .sort((a,b)=>+a[0]-+b[0])
+    .map(([k,v])=>`#${String(parseInt(k)).padStart(3,'0')} x${v-1}`)
+    .join(', ');
+  navigator.clipboard.writeText(txt||'No duplicates').then(()=>toast('Copied!','ok'));
+}
+
+// ───────────────────────────────────────────────
+// BULK
+// ───────────────────────────────────────────────
+function bulkImport(){
+  const txt = document.getElementById('bulk').value;
+  const nums = [...txt.matchAll(/\b\d{1,3}\b/g)]
+    .map(m=>parseInt(m[0])).filter(n=>n>=0&&n<=978);
+  if(!nums.length){ toast('No valid numbers','warn'); return; }
+  nums.forEach(n=>{ col[n]=(col[n]||0)+1; });
+  save(); updateStats();
+  if(isActive('album')) renderGrid();
+  if(isActive('dupes')) renderDupes();
+  document.getElementById('bulk').value='';
+  toast(`Imported ${nums.length} stickers`,'ok');
+}
+
+function doReset(){
+  if(!confirm('Reset ALL progress? This cannot be undone.')) return;
+  col={}; save(); updateStats(); renderGrid(); renderDupes();
+  toast('Collection reset','warn');
+}
+
+// ───────────────────────────────────────────────
+// CAMERA — OCR
+// ───────────────────────────────────────────────
+async function toggleCam(){
+  const area = document.getElementById('cbox');
+  const btn = document.getElementById('cbtn');
+  const capBtn = document.getElementById('capbtn');
+  const stat = document.getElementById('cstat');
+  if(camS){
+    camS.getTracks().forEach(t=>t.stop()); camS=null;
+    area.style.display='none'; btn.textContent='📷 Start Camera';
+    capBtn.style.display='none'; stat.textContent='Camera off'; return;
+  }
+  try{
+    camS = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:1280}}
+    });
+    document.getElementById('cvid').srcObject=camS;
+    area.style.display='block';
+    btn.textContent='⏹ Stop'; capBtn.style.display='';
+    stat.textContent='Press Capture to read number';
+  }catch(e){
+    stat.textContent='❌ Camera unavailable — needs HTTP server';
+    toast('Camera blocked on file://','err');
+  }
+}
+
+async function captureOCR(){
+  const vid=document.getElementById('cvid');
+  const stat=document.getElementById('cstat');
+  if(!vid.videoWidth){ toast('Camera not ready','warn'); return; }
+  const c=document.createElement('canvas');
+  c.width=vid.videoWidth; c.height=vid.videoHeight;
+  c.getContext('2d').drawImage(vid,0,0);
+
+  if(window.Tesseract){
+    stat.textContent='Reading…';
+    try{
+      const {data:{text}}=await Tesseract.recognize(c,'eng',{tessedit_char_whitelist:'0123456789'});
+      const found=[...text.matchAll(/\d{1,3}/g)].map(m=>parseInt(m[0])).filter(n=>n>=0&&n<=978);
+      if(found.length){
+        buf=String(found[0]); redisplay();
+        stat.textContent=`Detected: #${String(found[0]).padStart(3,'0')} — press ADD`;
+      } else {
+        stat.textContent='No number detected — enter manually';
+      }
+    }catch(e){ stat.textContent='OCR failed — enter manually'; }
+  } else {
+    // No Tesseract: show snapshot so user can read and type it
+    const img=c.toDataURL('image/jpeg',.7);
+    stat.innerHTML=`<img src="${img}" style="max-height:80px;border-radius:6px;display:block;margin:3px auto;"><span style="display:block;text-align:center;">Type the number using the numpad</span>`;
+  }
+}
+
+// ───────────────────────────────────────────────
+// TRADE / QR
+// ───────────────────────────────────────────────
+function myData(){
+  const m=[],d=[];
+  for(let i=0;i<=978;i++){
+    if(!col[i]) m.push(i);
+    else if(col[i]>1) d.push(i);
+  }
+  return {m,d,v:1};
+}
+
+const ENC = s=>'pn26:'+btoa(JSON.stringify(s));
+const DEC = s=>JSON.parse(atob(s.replace('pn26:','').trim()));
+
+function genQR(){
+  const box=document.getElementById('qrbox');
+  box.innerHTML='';
+  const d=myData();
+  const payload=ENC({m:d.m.slice(0,250),d:d.d,v:1});
+  try{
+    new QRCode(box,{text:payload,width:200,height:200,colorDark:'#111016',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    toast('QR ready!','ok');
+  }catch(e){
+    box.innerHTML='<div style="color:var(--red);font-size:.68rem;padding:10px;text-align:center;">Too much data — use Copy Code</div>';
+  }
+}
+
+function copyCode(){
+  const d=myData();
+  navigator.clipboard.writeText(ENC({m:d.m,d:d.d,v:1})).then(()=>toast('Code copied!','ok'));
+}
+
+async function pasteCode(){
+  let txt;
+  try{ txt=await navigator.clipboard.readText(); }
+  catch(e){ txt=prompt("Paste friend's trade code:"); }
+  if(txt) processCode(txt.trim());
+}
+
+function processCode(raw){
+  try{ showMatch(DEC(raw)); }
+  catch(e){ toast('Invalid trade code','err'); }
+}
+
+function showMatch(them){
+  const me=myData();
+  const myMiss=new Set(me.m);
+  const theirMiss=new Set(them.m||[]);
+  const iGive=me.d.filter(n=>theirMiss.has(n));
+  const theyGive=(them.d||[]).filter(n=>myMiss.has(n));
+
+  document.getElementById('matchcard').style.display='block';
+  const fmt=cls=>n=>`<span class="chip ${cls}">#${String(n).padStart(3,'0')}</span>`;
+  document.getElementById('cgive').innerHTML=iGive.length?iGive.map(fmt('chip-g')).join(''):'<span style="color:var(--muted);font-size:.68rem;font-family:\'Space Mono\',monospace;">Nothing to give</span>';
+  document.getElementById('cget').innerHTML=theyGive.length?theyGive.map(fmt('chip-m')).join(''):'<span style="color:var(--muted);font-size:.68rem;font-family:\'Space Mono\',monospace;">Nothing new for you</span>';
+  toast(`${iGive.length} give / ${theyGive.length} get`,'ok');
+  document.getElementById('matchcard').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function updateSummary(){
+  const d=myData();
+  const cM=d.m.slice(0,60).map(n=>`<span class="chip chip-m">#${String(n).padStart(3,'0')}</span>`).join('')
+    +(d.m.length>60?`<span style="color:var(--muted);font-size:.58rem;padding:2px 5px;font-family:'Space Mono',monospace;">+${d.m.length-60}</span>`:'');
+  const cD=d.d.slice(0,60).map(n=>`<span class="chip chip-d">#${String(n).padStart(3,'0')}</span>`).join('')
+    +(d.d.length>60?`<span style="color:var(--muted);font-size:.58rem;padding:2px 5px;font-family:'Space Mono',monospace;">+${d.d.length-60}</span>`:'');
+  document.getElementById('summ').innerHTML=cM||'<span style="color:var(--green);font-size:.68rem;font-family:\'Space Mono\',monospace;">Complete! 🎉</span>';
+  document.getElementById('sumd').innerHTML=cD||'<span style="color:var(--muted);font-size:.68rem;font-family:\'Space Mono\',monospace;">No dupes yet</span>';
+}
+
+// Trade camera (QR)
+async function toggleTradeCam(){
+  const area=document.getElementById('tcbox');
+  const stat=document.getElementById('tstat');
+  if(tradS){
+    tradS.getTracks().forEach(t=>t.stop()); tradS=null;
+    cancelAnimationFrame(tradRaf);
+    area.style.display='none'; stat.textContent='Camera off'; return;
+  }
+  try{
+    tradS=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    document.getElementById('tvid').srcObject=tradS;
+    area.style.display='block'; stat.textContent='Scanning…';
+    scanQR();
+  }catch(e){ stat.textContent='❌ Camera unavailable'; toast('Camera blocked','err'); }
+}
+
+function scanQR(){
+  const vid=document.getElementById('tvid');
+  const tick=()=>{
+    if(!tradS) return;
+    if(vid.videoWidth&&vid.readyState>=2){
+      const c=document.createElement('canvas');
+      c.width=vid.videoWidth; c.height=vid.videoHeight;
+      c.getContext('2d').drawImage(vid,0,0);
+      if(window.jsQR){
+        const code=jsQR(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height);
+        if(code&&code.data.startsWith('pn26:')){
+          tradS.getTracks().forEach(t=>t.stop()); tradS=null;
+          document.getElementById('tcbox').style.display='none';
+          document.getElementById('tstat').textContent='QR found!';
+          processCode(code.data); return;
+        }
+      }
+    }
+    tradRaf=requestAnimationFrame(tick);
+  };
+  tradRaf=requestAnimationFrame(tick);
+}
+
+function readQRFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const img=new Image();
+  const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=img.width; c.height=img.height;
+    c.getContext('2d').drawImage(img,0,0);
+    if(window.jsQR){
+      const code=jsQR(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height);
+      if(code) processCode(code.data); else toast('No QR found','warn');
+    } else { toast('QR lib loading, try again','warn'); }
+    URL.revokeObjectURL(url);
+  };
+  img.src=url;
+}
+
+// ───────────────────────────────────────────────
+// TAB NAV
+// ───────────────────────────────────────────────
+function goTab(name){
+  const names=['add','album','dupes','trade'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(name==='album') renderGrid();
+  if(name==='dupes') renderDupes();
+  if(name==='trade'){ updateSummary(); genQR(); }
+}
+
+function isActive(name){ return document.getElementById('panel-'+name).classList.contains('active'); }
+
+// ───────────────────────────────────────────────
+// FEEDBACK / TOAST
+// ───────────────────────────────────────────────
+let fbT;
+function showFb(type,msg){
+  const el=document.getElementById('fb');
+  el.className=`fb show ${type}`; el.textContent=msg;
+  clearTimeout(fbT); fbT=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+let toastT;
+function toast(msg,type='info'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast show ${type}`;
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ───────────────────────────────────────────────
+// INIT
+// ───────────────────────────────────────────────
+load();
+updateStats();
+renderGrid();
+</script>
+</body>
+</html>
