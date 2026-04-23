@@ -830,9 +830,6 @@ function nk(v){
   if(buf.length >= 3) return;
   buf += v;
   redisplay();
-  // Auto-commit if exact match found
-  const candidate = resolveId(curTeam, buf);
-  if(candidate && STICKER_MAP[candidate]){ setTimeout(commit, 160); }
 }
 
 function resolveId(teamKey, numStr){
