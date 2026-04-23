@@ -122,9 +122,12 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
 .team-group{margin-bottom:16px;}
 .team-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:5px 8px;
   background:var(--s2);border-radius:8px;border:1px solid var(--border);}
-.team-name{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--text);flex:1;}
-.team-prog{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);}
-.team-bar-wrap{width:60px;height:4px;background:var(--s3);border-radius:99px;overflow:hidden;}
+.team-flag{font-size:1.2rem;line-height:1;flex-shrink:0;}
+.team-name{font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:1px;color:var(--text);flex:1;display:flex;align-items:baseline;gap:5px;}
+.team-abbrev{color:var(--accent);letter-spacing:2px;font-size:1rem;}
+.team-fullname{color:var(--muted);font-size:.75rem;font-family:'Space Mono',monospace;font-weight:400;letter-spacing:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.team-prog{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);white-space:nowrap;}
+.team-bar-wrap{width:44px;height:4px;background:var(--s3);border-radius:99px;overflow:hidden;flex-shrink:0;}
 .team-bar-fill{height:100%;background:var(--green);border-radius:99px;transition:width .3s;}
 
 /* STICKER CELLS */
@@ -362,57 +365,57 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
 // holo: true for emblem stickers (= hologram parallels)
 // ═══════════════════════════════════════════════════════════
 const TEAMS = [
-  { key:'00',  label:'We Are Panini' },
-  { key:'FWC', label:'FIFA World Cup 2026' },
-  { key:'CC',  label:'Coca-Cola (Latin America)' },
-  { key:'ALG', label:'Algeria' },
-  { key:'ARG', label:'Argentina' },
-  { key:'AUS', label:'Australia' },
-  { key:'AUT', label:'Austria' },
-  { key:'BEL', label:'Belgium' },
-  { key:'BIH', label:'Bosnia and Herzegovina' },
-  { key:'BRA', label:'Brazil' },
-  { key:'CAN', label:'Canada' },
-  { key:'CIV', label:'Ivory Coast' },
-  { key:'COD', label:'Congo DR' },
-  { key:'COL', label:'Colombia' },
-  { key:'CPV', label:'Cape Verde' },
-  { key:'CRO', label:'Croatia' },
-  { key:'CUW', label:'Curaçao' },
-  { key:'CZE', label:'Czechia' },
-  { key:'ECU', label:'Ecuador' },
-  { key:'EGY', label:'Egypt' },
-  { key:'ENG', label:'England' },
-  { key:'ESP', label:'Spain' },
-  { key:'FRA', label:'France' },
-  { key:'GER', label:'Germany' },
-  { key:'GHA', label:'Ghana' },
-  { key:'HAI', label:'Haiti' },
-  { key:'IRN', label:'Iran' },
-  { key:'IRQ', label:'Iraq' },
-  { key:'JOR', label:'Jordan' },
-  { key:'JPN', label:'Japan' },
-  { key:'KOR', label:'Korea Republic' },
-  { key:'KSA', label:'Saudi Arabia' },
-  { key:'MAR', label:'Morocco' },
-  { key:'MEX', label:'Mexico' },
-  { key:'NED', label:'Netherlands' },
-  { key:'NOR', label:'Norway' },
-  { key:'NZL', label:'New Zealand' },
-  { key:'PAN', label:'Panama' },
-  { key:'PAR', label:'Paraguay' },
-  { key:'POR', label:'Portugal' },
-  { key:'QAT', label:'Qatar' },
-  { key:'RSA', label:'South Africa' },
-  { key:'SCO', label:'Scotland' },
-  { key:'SEN', label:'Senegal' },
-  { key:'SUI', label:'Switzerland' },
-  { key:'SWE', label:'Sweden' },
-  { key:'TUN', label:'Tunisia' },
-  { key:'TUR', label:'Türkiye' },
-  { key:'URU', label:'Uruguay' },
-  { key:'USA', label:'United States' },
-  { key:'UZB', label:'Uzbekistan' },
+  { key:'00',  label:'🌟 We Are Panini' },
+  { key:'FWC', label:'🏆 FWC · FIFA World Cup 2026' },
+  { key:'CC',  label:'🥤 CC · Coca-Cola (Latin America)' },
+  { key:'ALG', label:'🇩🇿 ALG · Algeria' },
+  { key:'ARG', label:'🇦🇷 ARG · Argentina' },
+  { key:'AUS', label:'🇦🇺 AUS · Australia' },
+  { key:'AUT', label:'🇦🇹 AUT · Austria' },
+  { key:'BEL', label:'🇧🇪 BEL · Belgium' },
+  { key:'BIH', label:'🇧🇦 BIH · Bosnia and Herzegovina' },
+  { key:'BRA', label:'🇧🇷 BRA · Brazil' },
+  { key:'CAN', label:'🇨🇦 CAN · Canada' },
+  { key:'CIV', label:'🇨🇮 CIV · Ivory Coast' },
+  { key:'COD', label:'🇨🇩 COD · Congo DR' },
+  { key:'COL', label:'🇨🇴 COL · Colombia' },
+  { key:'CPV', label:'🇨🇻 CPV · Cape Verde' },
+  { key:'CRO', label:'🇭🇷 CRO · Croatia' },
+  { key:'CUW', label:'🇨🇼 CUW · Curaçao' },
+  { key:'CZE', label:'🇨🇿 CZE · Czechia' },
+  { key:'ECU', label:'🇪🇨 ECU · Ecuador' },
+  { key:'EGY', label:'🇪🇬 EGY · Egypt' },
+  { key:'ENG', label:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG · England' },
+  { key:'ESP', label:'🇪🇸 ESP · Spain' },
+  { key:'FRA', label:'🇫🇷 FRA · France' },
+  { key:'GER', label:'🇩🇪 GER · Germany' },
+  { key:'GHA', label:'🇬🇭 GHA · Ghana' },
+  { key:'HAI', label:'🇭🇹 HAI · Haiti' },
+  { key:'IRN', label:'🇮🇷 IRN · Iran' },
+  { key:'IRQ', label:'🇮🇶 IRQ · Iraq' },
+  { key:'JOR', label:'🇯🇴 JOR · Jordan' },
+  { key:'JPN', label:'🇯🇵 JPN · Japan' },
+  { key:'KOR', label:'🇰🇷 KOR · Korea Republic' },
+  { key:'KSA', label:'🇸🇦 KSA · Saudi Arabia' },
+  { key:'MAR', label:'🇲🇦 MAR · Morocco' },
+  { key:'MEX', label:'🇲🇽 MEX · Mexico' },
+  { key:'NED', label:'🇳🇱 NED · Netherlands' },
+  { key:'NOR', label:'🇳🇴 NOR · Norway' },
+  { key:'NZL', label:'🇳🇿 NZL · New Zealand' },
+  { key:'PAN', label:'🇵🇦 PAN · Panama' },
+  { key:'PAR', label:'🇵🇾 PAR · Paraguay' },
+  { key:'POR', label:'🇵🇹 POR · Portugal' },
+  { key:'QAT', label:'🇶🇦 QAT · Qatar' },
+  { key:'RSA', label:'🇿🇦 RSA · South Africa' },
+  { key:'SCO', label:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO · Scotland' },
+  { key:'SEN', label:'🇸🇳 SEN · Senegal' },
+  { key:'SUI', label:'🇨🇭 SUI · Switzerland' },
+  { key:'SWE', label:'🇸🇪 SWE · Sweden' },
+  { key:'TUN', label:'🇹🇳 TUN · Tunisia' },
+  { key:'TUR', label:'🇹🇷 TUR · Türkiye' },
+  { key:'URU', label:'🇺🇾 URU · Uruguay' },
+  { key:'USA', label:'🇺🇸 USA · United States' },
+  { key:'UZB', label:'🇺🇿 UZB · Uzbekistan' },
 ];
 
 function S(id, name, holo=false){ return {id, name, holo}; }
@@ -945,9 +948,16 @@ function renderGrid(){
     const gotCount = stickers.filter(s=>col[s.id.toUpperCase()]>0).length;
     const teamPct = Math.round(gotCount/total*100);
 
+    // Parse "🇩🇿 ALG · Algeria" → flag="🇩🇿", abbrev="ALG", name="Algeria"
+    const labelParts = teamInfo.label.match(/^(\S+)\s+([A-Z0-9]+)\s+·\s+(.+)$/);
+    const flag   = labelParts ? labelParts[1] : '';
+    const abbrev = labelParts ? labelParts[2] : teamInfo.key;
+    const tname  = labelParts ? labelParts[3] : teamInfo.label;
+
     html += `<div class="team-group">
       <div class="team-header">
-        <div class="team-name">${teamInfo.label}</div>
+        <div class="team-flag">${flag}</div>
+        <div class="team-name"><span class="team-abbrev">${abbrev}</span> <span class="team-fullname">${tname}</span></div>
         <div class="team-prog">${gotCount}/${total}</div>
         <div class="team-bar-wrap"><div class="team-bar-fill" style="width:${teamPct}%"></div></div>
       </div>
