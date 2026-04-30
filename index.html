@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#111016">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Panini WC 2026 Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<script src="jsQR.js"></script>
 <style>
 :root{
   --bg:#111016;--s1:#1c1a28;--s2:#252336;--s3:#2e2b44;
@@ -15,8 +20,11 @@
   --text:#ede9f8;--muted:#7b6fa0;--r:14px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden}
-body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;display:flex;flex-direction:column;max-width:480px;margin:0 auto;}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',sans-serif;display:flex;flex-direction:column;max-width:480px;margin:0 auto;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 70% 40% at 15% 0%,rgba(167,139,250,.09) 0%,transparent 60%),
              radial-gradient(ellipse 50% 30% at 85% 90%,rgba(245,200,66,.06) 0%,transparent 60%);}
@@ -310,23 +318,26 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
     <div class="tsec">
       <div class="card">
         <div class="card-title">🔁 Your Trade QR Code</div>
-        <div id="qrbox"><span style="color:var(--muted);font-size:.68rem;font-family:'Space Mono',monospace;">Press Generate</span></div>
-        <div class="row">
-          <button class="btn btn-p" onclick="genQR()">Generate QR</button>
-          <button class="btn btn-s" onclick="copyCode()">Copy Code</button>
+        <div id="qrbox" onclick="genQR()" style="cursor:pointer;">
+          <span style="color:var(--muted);font-size:.68rem;font-family:'Space Mono',monospace;text-align:center;line-height:1.8;">
+            Tap to generate QR
+          </span>
         </div>
+        <button class="btn btn-s" style="width:100%;margin-top:8px;" onclick="copyCode()">📋 Copy Trade Code</button>
       </div>
       <div class="card">
         <div class="card-title">📷 Scan Friend's QR</div>
-        <div class="cam-box" id="tcbox">
-          <video id="tvid" autoplay playsinline muted></video>
-          <div class="cam-ov"><div class="scan-rect"><div class="scan-line"></div></div><div class="cam-hint">Scanning for QR…</div></div>
-        </div>
-        <div class="cam-status" id="tstat">Camera off</div>
-        <button class="btn btn-s" style="width:100%;margin-bottom:7px;" onclick="toggleTradeCam()">📷 Open Camera</button>
-        <div class="paste-z" onclick="pasteCode()">📋 Tap to paste friend's trade code</div>
+        <!-- Hidden inputs for camera/file -->
+        <input type="file" id="qr-capture-input" accept="image/*" capture="environment" style="display:none" onchange="readQRFile(event)">
         <input type="file" id="qrfile" accept="image/*" style="display:none" onchange="readQRFile(event)">
-        <button class="btn btn-g" style="width:100%;font-size:.72rem;" onclick="document.getElementById('qrfile').click()">Upload QR Image</button>
+        <!-- QR preview when jsQR not available -->
+        <img id="qr-preview-img" style="display:none;width:100%;border-radius:9px;margin-bottom:8px;" alt="QR preview">
+        <div class="cam-status" id="tstat">Ready to scan</div>
+        <!-- Primary: open camera directly -->
+        <button class="btn btn-p" style="width:100%;margin-bottom:8px;" onclick="toggleTradeCam()">📷 Scan QR with Camera</button>
+        <!-- Secondary: pick from gallery -->
+        <button class="btn btn-s" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('qrfile').click()">🖼️ Choose QR from Gallery</button>
+        <div class="paste-z" onclick="pasteCode()">📋 Paste friend's trade code</div>
       </div>
       <div class="card" id="matchcard" style="display:none;">
         <div class="card-title">🎯 Trade Match!</div>
@@ -1120,32 +1131,107 @@ function doReset(){
 // ═══════════════════════════════════════════════════════════
 // TRADE / QR
 // ═══════════════════════════════════════════════════════════
+// ── TRADE ENCODING STRATEGY ──────────────────────────────
+// Instead of encoding missing (900+ IDs at start = huge QR),
+// we encode COLLECTED + DUPES only (small list, grows gradually).
+// The receiver derives missing = ALL_IDS - their_collected.
+// Dupes encoded as comma-separated short IDs with run-length.
+// Format: "p26:c=ALG1,ALG3,ARG17&d=ALG1x2,ARG3x3"
+// ─────────────────────────────────────────────────────────
+
+function encodeShortId(id){
+  // "ALG-1" -> "ALG1", "FWC-3" -> "FWC3", "CC1" -> "CC1", "00" -> "00"
+  return id.replace('-','');
+}
+function decodeShortId(s){
+  // "ALG1" -> "ALG-1", "FWC3" -> "FWC-3", "CC1" -> "CC1", "00" -> "00"
+  s = s.toUpperCase();
+  if(s === '00') return '00';
+  if(s.startsWith('CC')) return s; // CC1..CC14 no dash
+  const m = s.match(/^([A-Z]+)(\d+)$/);
+  if(!m) return s;
+  return m[1] + '-' + m[2];
+}
+
+function buildPayload(){
+  const got = Object.keys(col); // collected IDs
+  const dupes = Object.entries(col).filter(([,v])=>v>1);
+  const cPart = got.map(encodeShortId).join(',');
+  const dPart = dupes.map(([id,c])=>encodeShortId(id)+'x'+c).join(',');
+  return 'p26:c=' + cPart + (dPart ? '&d=' + dPart : '');
+}
+
+function parsePayload(raw){
+  raw = raw.trim();
+  // Legacy base64 format
+  if(raw.startsWith('pn26v2:') || raw.startsWith('pn26:')){
+    try{
+      const obj = JSON.parse(atob(raw.replace('pn26v2:','').replace('pn26:','')));
+      // Convert old format: had m=missing, d=dupes
+      // Derive collected = ALL_IDS - missing
+      const missSet = new Set((obj.m||[]).map(s=>s.toUpperCase()));
+      const theirGot = ALL_IDS.filter(id=>!missSet.has(id));
+      const theirDupes = (obj.d||[]).map(s=>s.toUpperCase());
+      return { got: theirGot, dupes: theirDupes };
+    }catch(e){ return null; }
+  }
+  // New compact format
+  if(raw.startsWith('p26:')){
+    try{
+      const body = raw.slice(4);
+      const params = {};
+      body.split('&').forEach(part=>{
+        const [k,v] = part.split('=');
+        params[k] = v||'';
+      });
+      const got = params.c ? params.c.split(',').filter(Boolean).map(decodeShortId) : [];
+      const dupes = params.d ? params.d.split(',').filter(Boolean).map(s=>{
+        const m = s.match(/^(.+)x(\d+)$/i);
+        return m ? decodeShortId(m[1]) : decodeShortId(s);
+      }) : [];
+      return { got, dupes };
+    }catch(e){ return null; }
+  }
+  return null;
+}
+
 function myData(){
   const m = ALL_IDS.filter(id=>!col[id]);
   const d = ALL_IDS.filter(id=>col[id]>1);
-  return {m,d,v:2};
+  return {m,d};
 }
-
-const ENC = s => 'pn26v2:' + btoa(JSON.stringify(s));
-const DEC = s => JSON.parse(atob(s.replace('pn26v2:','').replace('pn26:','').trim()));
 
 function genQR(){
   const box = document.getElementById('qrbox');
   box.innerHTML='';
-  const d = myData();
-  // Compress: abbreviate IDs by removing common prefixes
-  const payload = ENC({m:d.m.slice(0,150), d:d.d, v:2});
+  box.style.cursor='default';
+  box.onclick=null;
+  const payload = buildPayload();
+  const charCount = payload.length;
   try{
-    new QRCode(box,{text:payload,width:200,height:200,colorDark:'#111016',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-    toast('QR ready!','ok');
+    new QRCode(box,{
+      text: payload,
+      width: 220,
+      height: 220,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.L
+    });
+    toast(`QR ready! (${charCount} chars)`,'ok');
   }catch(e){
-    box.innerHTML='<div style="color:var(--red);font-size:.68rem;padding:10px;text-align:center;">Too large for QR — use Copy Code</div>';
+    const dupesOnly = Object.keys(col).filter(id=>col[id]>1).map(encodeShortId).join(',');
+    const fallback = 'p26:d=' + dupesOnly;
+    try{
+      new QRCode(box,{text:fallback,width:220,height:220,colorDark:'#000000',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.L});
+      toast('QR shows dupes only (collection too large)','warn');
+    }catch(e2){
+      box.innerHTML='<div style="color:var(--red);font-size:.68rem;padding:14px;text-align:center;">Collection too large for QR.<br>Use Copy Code instead.</div>';
+    }
   }
 }
 
 function copyCode(){
-  const d = myData();
-  navigator.clipboard.writeText(ENC({m:d.m,d:d.d,v:2})).then(()=>toast('Code copied!','ok'));
+  navigator.clipboard.writeText(buildPayload()).then(()=>toast('Trade code copied!','ok'));
 }
 
 async function pasteCode(){
@@ -1156,16 +1242,20 @@ async function pasteCode(){
 }
 
 function processCode(raw){
-  try{ showMatch(DEC(raw)); }
-  catch(e){ toast('Invalid trade code','err'); }
+  const parsed = parsePayload(raw);
+  if(!parsed){ toast('Invalid trade code','err'); return; }
+  showMatch(parsed);
 }
 
 function showMatch(them){
   const me = myData();
   const myMiss = new Set(me.m);
-  const theirMiss = new Set((them.m||[]).map(s=>s.toUpperCase()));
+  const theirGotSet = new Set((them.got||[]).map(s=>s.toUpperCase()));
+  // Their missing = everything they don't have
+  const theirMiss = new Set(ALL_IDS.filter(id=>!theirGotSet.has(id)));
+  const theirDupesSet = new Set((them.dupes||[]).map(s=>s.toUpperCase()));
   const iGive = me.d.filter(n=>theirMiss.has(n));
-  const theyGive = (them.d||[]).map(s=>s.toUpperCase()).filter(n=>myMiss.has(n));
+  const theyGive = [...theirDupesSet].filter(n=>myMiss.has(n));
 
   document.getElementById('matchcard').style.display='block';
   const fmt = cls => n => `<span class="chip ${cls}">${n}</span>`;
@@ -1185,57 +1275,108 @@ function updateTradeSummary(){
   document.getElementById('sumd').innerHTML = cD||'<span style="color:var(--muted);font-size:.68rem;font-family:\'Space Mono\',monospace;">No dupes yet</span>';
 }
 
-// Trade camera
+// ═══════════════════════════════════════════════════════════
+// QR SCANNING — uses Capacitor MLKit BarcodeScanner (native)
+// with fallback to image upload + ZXing via input[capture]
+// ═══════════════════════════════════════════════════════════
+
 async function toggleTradeCam(){
-  const area=document.getElementById('tcbox');
-  const stat=document.getElementById('tstat');
-  if(tradStream){
-    tradStream.getTracks().forEach(t=>t.stop()); tradStream=null;
-    cancelAnimationFrame(tradRaf); area.style.display='none'; stat.textContent='Camera off'; return;
+  const stat = document.getElementById('tstat');
+
+  // Try Capacitor BarcodeScanner plugin first (native, reliable)
+  const scanner = window.Capacitor?.Plugins?.BarcodeScanner
+                || window.Capacitor?.Plugins?.MLKitBarcodeScanner;
+
+  if(scanner){
+    try{
+      stat.textContent = 'Opening scanner…';
+      // Make background transparent so native scanner shows through
+      document.body.style.background = 'transparent';
+      await scanner.checkPermission({force: true});
+      scanner.hideBackground?.();
+      const result = await scanner.startScan?.() || await scanner.scan?.();
+      document.body.style.background = '';
+      if(result?.hasContent || result?.content){
+        const code = result.content || result.hasContent;
+        stat.textContent = 'QR found!';
+        processCode(typeof code === 'string' ? code : result.content);
+      } else {
+        stat.textContent = 'No QR detected — try image upload';
+        document.body.style.background = '';
+      }
+    }catch(e){
+      document.body.style.background = '';
+      stat.textContent = 'Scanner unavailable — use image upload below';
+    }
+    return;
   }
-  try{
-    tradStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
-    document.getElementById('tvid').srcObject=tradStream;
-    area.style.display='block'; stat.textContent='Scanning…';
-    scanQR();
-  }catch(e){ stat.textContent='❌ Camera unavailable'; toast('Camera blocked','err'); }
+
+  // Fallback: open camera via file input with capture attribute
+  // This works in Capacitor WebView on Android — opens camera app,
+  // user takes photo of QR, we decode it
+  stat.textContent = 'Opening camera…';
+  const input = document.getElementById('qr-capture-input');
+  input.click();
 }
 
-function scanQR(){
-  const vid=document.getElementById('tvid');
-  const tick=()=>{
-    if(!tradStream) return;
-    if(vid.videoWidth&&vid.readyState>=2){
-      const c=document.createElement('canvas'); c.width=vid.videoWidth; c.height=vid.videoHeight;
-      c.getContext('2d').drawImage(vid,0,0);
+// Decode QR from image using canvas + inline jsQR-compatible logic
+// We use a simple approach: send pixel data to a Worker or use
+// the ZXing WASM that ships with @zxing/browser
+async function decodeQRFromImage(file){
+  const stat = document.getElementById('tstat');
+  stat.textContent = 'Reading QR…';
+
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const c = document.createElement('canvas');
+      // Scale down large images for speed
+      const MAX = 800;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      c.width  = Math.round(img.width  * scale);
+      c.height = Math.round(img.height * scale);
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+
+      // Try jsQR if it was loaded successfully from CDN
       if(window.jsQR){
-        const code=jsQR(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height);
-        if(code&&(code.data.startsWith('pn26v2:')||code.data.startsWith('pn26:'))){
-          tradStream.getTracks().forEach(t=>t.stop()); tradStream=null;
-          document.getElementById('tcbox').style.display='none';
-          document.getElementById('tstat').textContent='QR found!';
-          processCode(code.data); return;
-        }
+        const imageData = ctx.getImageData(0, 0, c.width, c.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert'
+        });
+        if(code){ resolve(code.data); return; }
       }
-    }
-    tradRaf=requestAnimationFrame(tick);
-  };
-  tradRaf=requestAnimationFrame(tick);
+
+      // jsQR not available — show the image and ask user to paste code manually
+      const dataUrl = c.toDataURL('image/jpeg', 0.85);
+      document.getElementById('qr-preview-img').src = dataUrl;
+      document.getElementById('qr-preview-img').style.display = 'block';
+      stat.textContent = 'QR lib not loaded — paste the code manually below';
+      reject(new Error('no-jsqr'));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('img-load')); };
+    img.src = url;
+  });
 }
 
 function readQRFile(e){
-  const file=e.target.files[0]; if(!file) return;
-  const img=new Image(); const url=URL.createObjectURL(file);
-  img.onload=()=>{
-    const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
-    c.getContext('2d').drawImage(img,0,0);
-    if(window.jsQR){
-      const code=jsQR(c.getContext('2d').getImageData(0,0,c.width,c.height).data,c.width,c.height);
-      if(code) processCode(code.data); else toast('No QR found','warn');
-    } else { toast('QR lib not ready, retry','warn'); }
-    URL.revokeObjectURL(url);
-  };
-  img.src=url;
+  const file = e.target.files[0];
+  if(!file) return;
+  // Reset input so same file can be selected again
+  e.target.value = '';
+  decodeQRFromImage(file)
+    .then(code =>{
+      document.getElementById('tstat').textContent = 'QR found!';
+      document.getElementById('qr-preview-img').style.display = 'none';
+      processCode(code);
+    })
+    .catch(err =>{
+      if(err.message !== 'no-jsqr'){
+        document.getElementById('tstat').textContent = 'Could not read image — try again';
+      }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1248,7 +1389,7 @@ function goTab(name){
   document.getElementById('panel-'+name).classList.add('active');
   if(name==='album') renderGrid();
   if(name==='dupes') renderDupes();
-  if(name==='trade'){ updateTradeSummary(); genQR(); }
+  if(name==='trade'){ updateTradeSummary(); }
 }
 
 function isActive(name){ return document.getElementById('panel-'+name).classList.contains('active'); }
@@ -1268,11 +1409,40 @@ function toast(msg,type='info'){
 }
 
 // ═══════════════════════════════════════════════════════════
+// ADMOB BANNER
+// ═══════════════════════════════════════════════════════════
+async function initAds(){
+  try{
+    const admob = window.Capacitor?.Plugins?.AdMob;
+    if(!admob){ console.log('AdMob: not in native context, skipping'); return; }
+
+    await admob.initialize({ requestTrackingAuthorization: false });
+
+    await admob.showBanner({
+      adId: 'ca-app-pub-7664389194036942/9735492625',
+      adSize: 'BANNER',
+      position: 'TOP_CENTER',
+      margin: 0,
+      isTesting: false,
+    });
+
+    // Add top padding to header so banner doesn't overlap content
+    document.querySelector('header').style.paddingTop =
+      'calc(12px + 50px)'; // 50px = standard banner height
+
+    console.log('AdMob banner loaded');
+  } catch(e){
+    console.log('AdMob error:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
 load();
 initTeamSel();
 updateStats();
+initAds();
 </script>
 </body>
 </html>
