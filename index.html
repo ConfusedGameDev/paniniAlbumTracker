@@ -299,6 +299,22 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
 .remove-sheet-sub{font-size:.8rem;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:16px;}
 .remove-sheet-id{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--text);}
 
+/* DUPE SECTIONS */
+.dupe-section{margin-bottom:6px;}
+.dupe-header{
+  display:flex;align-items:center;gap:7px;
+  background:var(--s2);border:1px solid var(--border);border-radius:9px;
+  padding:9px 12px;cursor:pointer;transition:border-color .15s;
+  user-select:none;
+}
+.dupe-header:hover{border-color:var(--purple);}
+.dupe-flag{font-size:1.1rem;flex-shrink:0;}
+.dupe-abbrev{font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--accent);letter-spacing:2px;flex-shrink:0;}
+.dupe-name{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dupe-count{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--accent2);white-space:nowrap;flex-shrink:0;}
+.dupe-arrow{font-size:.7rem;color:var(--muted);flex-shrink:0;width:12px;text-align:center;}
+.dupe-body{flex-direction:column;gap:5px;padding:6px 0 2px;}
+
 /* REPEATS */
 .rlist{display:flex;flex-direction:column;gap:5px;}
 .ri{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:9px 12px;display:flex;align-items:center;gap:9px;}
@@ -505,57 +521,57 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
 // holo: true for emblem stickers (= hologram parallels)
 // ═══════════════════════════════════════════════════════════
 const TEAMS = [
-  { key:'00',  label:'🌟 We Are Panini' },
+  { key:'00',  label:'🌟 00 · We Are Panini' },
   { key:'FWC', label:'🏆 FWC · FIFA World Cup 2026' },
   { key:'CC',  label:'🥤 CC · Coca-Cola (Latin America)' },
-  { key:'ALG', label:'🇩🇿 ALG · Algeria' },
-  { key:'ARG', label:'🇦🇷 ARG · Argentina' },
-  { key:'AUS', label:'🇦🇺 AUS · Australia' },
-  { key:'AUT', label:'🇦🇹 AUT · Austria' },
-  { key:'BEL', label:'🇧🇪 BEL · Belgium' },
-  { key:'BIH', label:'🇧🇦 BIH · Bosnia and Herzegovina' },
-  { key:'BRA', label:'🇧🇷 BRA · Brazil' },
-  { key:'CAN', label:'🇨🇦 CAN · Canada' },
-  { key:'CIV', label:'🇨🇮 CIV · Ivory Coast' },
-  { key:'COD', label:'🇨🇩 COD · Congo DR' },
-  { key:'COL', label:'🇨🇴 COL · Colombia' },
-  { key:'CPV', label:'🇨🇻 CPV · Cape Verde' },
-  { key:'CRO', label:'🇭🇷 CRO · Croatia' },
-  { key:'CUW', label:'🇨🇼 CUW · Curaçao' },
-  { key:'CZE', label:'🇨🇿 CZE · Czechia' },
-  { key:'ECU', label:'🇪🇨 ECU · Ecuador' },
-  { key:'EGY', label:'🇪🇬 EGY · Egypt' },
-  { key:'ENG', label:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG · England' },
-  { key:'ESP', label:'🇪🇸 ESP · Spain' },
-  { key:'FRA', label:'🇫🇷 FRA · France' },
-  { key:'GER', label:'🇩🇪 GER · Germany' },
-  { key:'GHA', label:'🇬🇭 GHA · Ghana' },
-  { key:'HAI', label:'🇭🇹 HAI · Haiti' },
-  { key:'IRN', label:'🇮🇷 IRN · Iran' },
-  { key:'IRQ', label:'🇮🇶 IRQ · Iraq' },
-  { key:'JOR', label:'🇯🇴 JOR · Jordan' },
-  { key:'JPN', label:'🇯🇵 JPN · Japan' },
-  { key:'KOR', label:'🇰🇷 KOR · Korea Republic' },
-  { key:'KSA', label:'🇸🇦 KSA · Saudi Arabia' },
-  { key:'MAR', label:'🇲🇦 MAR · Morocco' },
   { key:'MEX', label:'🇲🇽 MEX · Mexico' },
-  { key:'NED', label:'🇳🇱 NED · Netherlands' },
-  { key:'NOR', label:'🇳🇴 NOR · Norway' },
-  { key:'NZL', label:'🇳🇿 NZL · New Zealand' },
-  { key:'PAN', label:'🇵🇦 PAN · Panama' },
-  { key:'PAR', label:'🇵🇾 PAR · Paraguay' },
-  { key:'POR', label:'🇵🇹 POR · Portugal' },
-  { key:'QAT', label:'🇶🇦 QAT · Qatar' },
   { key:'RSA', label:'🇿🇦 RSA · South Africa' },
-  { key:'SCO', label:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO · Scotland' },
-  { key:'SEN', label:'🇸🇳 SEN · Senegal' },
+  { key:'KOR', label:'🇰🇷 KOR · Korea Republic' },
+  { key:'CZE', label:'🇨🇿 CZE · Czechia' },
+  { key:'CAN', label:'🇨🇦 CAN · Canada' },
+  { key:'BIH', label:'🇧🇦 BIH · Bosnia and Herzegovina' },
+  { key:'QAT', label:'🇶🇦 QAT · Qatar' },
   { key:'SUI', label:'🇨🇭 SUI · Switzerland' },
+  { key:'BRA', label:'🇧🇷 BRA · Brazil' },
+  { key:'MAR', label:'🇲🇦 MAR · Morocco' },
+  { key:'HAI', label:'🇭🇹 HAI · Haiti' },
+  { key:'SCO', label:'🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO · Scotland' },
+  { key:'USA', label:'🇺🇸 USA · United States' },
+  { key:'PAR', label:'🇵🇾 PAR · Paraguay' },
+  { key:'AUS', label:'🇦🇺 AUS · Australia' },
+  { key:'TUR', label:'🇹🇷 TUR · Türkiye' },
+  { key:'GER', label:'🇩🇪 GER · Germany' },
+  { key:'CUW', label:'🇨🇼 CUW · Curaçao' },
+  { key:'CIV', label:'🇨🇮 CIV · Ivory Coast' },
+  { key:'ECU', label:'🇪🇨 ECU · Ecuador' },
+  { key:'NED', label:'🇳🇱 NED · Netherlands' },
+  { key:'JPN', label:'🇯🇵 JPN · Japan' },
   { key:'SWE', label:'🇸🇪 SWE · Sweden' },
   { key:'TUN', label:'🇹🇳 TUN · Tunisia' },
-  { key:'TUR', label:'🇹🇷 TUR · Türkiye' },
+  { key:'BEL', label:'🇧🇪 BEL · Belgium' },
+  { key:'EGY', label:'🇪🇬 EGY · Egypt' },
+  { key:'IRN', label:'🇮🇷 IRN · Iran' },
+  { key:'NZL', label:'🇳🇿 NZL · New Zealand' },
+  { key:'ESP', label:'🇪🇸 ESP · Spain' },
+  { key:'CPV', label:'🇨🇻 CPV · Cape Verde' },
+  { key:'KSA', label:'🇸🇦 KSA · Saudi Arabia' },
   { key:'URU', label:'🇺🇾 URU · Uruguay' },
-  { key:'USA', label:'🇺🇸 USA · United States' },
+  { key:'FRA', label:'🇫🇷 FRA · France' },
+  { key:'SEN', label:'🇸🇳 SEN · Senegal' },
+  { key:'IRQ', label:'🇮🇶 IRQ · Iraq' },
+  { key:'NOR', label:'🇳🇴 NOR · Norway' },
+  { key:'ARG', label:'🇦🇷 ARG · Argentina' },
+  { key:'ALG', label:'🇩🇿 ALG · Algeria' },
+  { key:'AUT', label:'🇦🇹 AUT · Austria' },
+  { key:'JOR', label:'🇯🇴 JOR · Jordan' },
+  { key:'POR', label:'🇵🇹 POR · Portugal' },
+  { key:'COD', label:'🇨🇩 COD · Congo DR' },
   { key:'UZB', label:'🇺🇿 UZB · Uzbekistan' },
+  { key:'COL', label:'🇨🇴 COL · Colombia' },
+  { key:'ENG', label:'🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG · England' },
+  { key:'CRO', label:'🇭🇷 CRO · Croatia' },
+  { key:'GHA', label:'🇬🇭 GHA · Ghana' },
+  { key:'PAN', label:'🇵🇦 PAN · Panama' },
 ];
 
 function S(id, name, holo=false){ return {id, name, holo}; }
@@ -1057,6 +1073,17 @@ function updateStats(){
   document.getElementById('ms-mi').textContent = miss;
   document.getElementById('ms-du').textContent = dups;
   document.getElementById('ms-ho').textContent = holos;
+  // Update native widget if running on Android
+  const widgetPlugin = window.Capacitor?.Plugins?.PaniniWidget;
+  if(widgetPlugin){
+    widgetPlugin.updateStats({
+      collected: got,
+      total: TOTAL,
+      dupes: dups,
+      percent: pct
+    }).catch(()=>{});
+  }
+
   updateTradeSummary();
 }
 
@@ -1212,23 +1239,87 @@ function setF(f,btn){
 // ═══════════════════════════════════════════════════════════
 // DUPES
 // ═══════════════════════════════════════════════════════════
+// Track which sections are expanded (default all collapsed)
+const dupesExpanded = {};
+
 function renderDupes(){
-  const dups = Object.entries(col).filter(([,v])=>v>1)
-    .sort((a,b)=>a[0].localeCompare(b[0]));
   const list = document.getElementById('rlist');
   const none = document.getElementById('nodup');
-  if(!dups.length){ list.innerHTML=''; none.style.display='block'; return; }
-  none.style.display='none';
-  list.innerHTML = dups.map(([id,c])=>{
-    const info = STICKER_MAP[id]||{name:id,holo:false,team:''};
-    const teamLabel = (TEAMS.find(t=>t.key===info.team)||{label:info.team}).label;
-    return `<div class="ri">
-      <div class="ri-n">${id}</div>
-      <div class="ri-tag">${info.name}<br>${teamLabel}${info.holo?' ✨':''}</div>
-      <div class="ri-badge">×${c-1} extra</div>
-      <button class="ri-del" onclick="removeOne('${id}')">✕</button>
+
+  // Group dupes by team, in TEAMS order
+  let totalDupes = 0;
+  const grouped = [];
+
+  for(const teamInfo of TEAMS){
+    const key = teamInfo.key;
+    const stickers = STICKERS_BY_TEAM[key] || [];
+    // Get dupes for this team, sorted ascending by sticker number
+    const teamDupes = stickers
+      .filter(s => col[s.id.toUpperCase()] > 1)
+      .sort((a,b) => {
+        const na = parseInt(a.id.replace(/[^0-9]/g,''));
+        const nb = parseInt(b.id.replace(/[^0-9]/g,''));
+        return na - nb;
+      });
+    if(teamDupes.length > 0){
+      grouped.push({ teamInfo, dupes: teamDupes });
+      totalDupes += teamDupes.length;
+    }
+  }
+
+  if(totalDupes === 0){
+    list.innerHTML = '';
+    none.style.display = 'block';
+    return;
+  }
+  none.style.display = 'none';
+
+  // Parse label for flag + abbrev
+  const parseLabel = label => {
+    const m = label.match(/^(\S+)\s+([A-Z0-9]+)\s+·\s+(.+)$/);
+    return m ? { flag: m[1], abbrev: m[2], name: m[3] } : { flag:'', abbrev: label, name: label };
+  };
+
+  list.innerHTML = grouped.map(({ teamInfo, dupes }) => {
+    const { flag, abbrev, name } = parseLabel(teamInfo.label);
+    const key = teamInfo.key;
+    const isOpen = dupesExpanded[key] === true;
+    const extraCount = dupes.reduce((sum, s) => sum + (col[s.id.toUpperCase()] - 1), 0);
+
+    const items = dupes.map(s => {
+      const id = s.id.toUpperCase();
+      const c = col[id];
+      const num = s.id.replace(/^[^0-9]*/, '');
+      return `<div class="ri">
+        <div class="ri-n">${num}</div>
+        <div class="ri-tag">${s.name}${s.holo?' ✨':''}</div>
+        <div class="ri-badge">×${c-1} extra</div>
+        <button class="ri-del" onclick="removeOne('${id}')">✕</button>
+      </div>`;
+    }).join('');
+
+    return `<div class="dupe-section">
+      <div class="dupe-header" onclick="toggleDupeSection('${key}',this)">
+        <span class="dupe-flag">${flag}</span>
+        <span class="dupe-abbrev">${abbrev}</span>
+        <span class="dupe-name">${name}</span>
+        <span class="dupe-count">${dupes.length} sticker${dupes.length>1?'s':''} · ×${extraCount} extra</span>
+        <span class="dupe-arrow">${isOpen ? '▲' : '▼'}</span>
+      </div>
+      <div class="dupe-body" id="dupe-body-${key}" style="display:${isOpen?'flex':'none'}">
+        ${items}
+      </div>
     </div>`;
   }).join('');
+}
+
+function toggleDupeSection(key, headerEl){
+  const body = document.getElementById('dupe-body-'+key);
+  const arrow = headerEl.querySelector('.dupe-arrow');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'flex';
+  arrow.textContent = isOpen ? '▼' : '▲';
+  dupesExpanded[key] = !isOpen;
 }
 
 function removeOne(id){
@@ -1241,11 +1332,17 @@ function removeOne(id){
 }
 
 function copyDupes(){
-  const txt = Object.entries(col).filter(([,v])=>v>1)
-    .sort((a,b)=>a[0].localeCompare(b[0]))
-    .map(([id,c])=>`${id} x${c-1}`)
-    .join(', ');
-  navigator.clipboard.writeText(txt||'No duplicates').then(()=>toast('Copied!','ok'));
+  const lines = [];
+  for(const teamInfo of TEAMS){
+    const stickers = STICKERS_BY_TEAM[teamInfo.key]||[];
+    const teamDupes = stickers.filter(s=>col[s.id.toUpperCase()]>1)
+      .sort((a,b)=>parseInt(a.id.replace(/[^0-9]/g,''))-parseInt(b.id.replace(/[^0-9]/g,'')));
+    for(const s of teamDupes){
+      const id = s.id.toUpperCase();
+      lines.push(`${id} x${col[id]-1}`);
+    }
+  }
+  navigator.clipboard.writeText(lines.join(', ')||'No duplicates').then(()=>toast('Copied!','ok'));
 }
 
 // ═══════════════════════════════════════════════════════════
