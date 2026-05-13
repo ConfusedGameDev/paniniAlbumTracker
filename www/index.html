@@ -9,9 +9,128 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Panini WC 2026 Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Nunito:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script>
+// ── Lightweight XLSX writer (no external dependency) ────────
+// Generates a real .xlsx file using the OOXML spec.
+// Only needs: JSZip (loaded below) + our data.
+// Supports: cell values, fill colors, font colors, bold.
+const XLSXWriter = (()=>{
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const colLetter = n => { let r=''; while(n>0){r=String.fromCharCode(65+(n-1)%26)+r;n=Math.floor((n-1)/26);} return r; };
+  const cellAddr = (r,c) => colLetter(c)+(r+1);
+
+  function buildXLSX(rows, colWidths=[]){
+    // rows: array of arrays of {v, bg, fg, bold, sz}
+    const sharedStrings = [];
+    const ssMap = {};
+    const getSI = s => { s=String(s); if(s in ssMap)return ssMap[s]; ssMap[s]=sharedStrings.length; sharedStrings.push(s); return sharedStrings.length-1; };
+
+    // Build styles
+    const fills = ['none','gray125']; // 0=none,1=gray125 (required by spec)
+    const fillMap = {};
+    const getFill = rgb => { if(!rgb)return 0; if(rgb in fillMap)return fillMap[rgb]; fillMap[rgb]=fills.length; fills.push(rgb); return fills.length-1; };
+
+    const fonts = [{}]; // index 0 = default
+    const fontMap = {};
+    const getFont = (bold,sz,color) => {
+      const k=`${bold}|${sz}|${color}`;
+      if(k in fontMap)return fontMap[k];
+      fontMap[k]=fonts.length;
+      fonts.push({bold,sz,color});
+      return fonts.length-1;
+    };
+
+    // xf (cell format) = fill + font combination
+    const xfs = [{fillId:0,fontId:0,applyFill:0,applyFont:0}]; // default
+    const xfMap = {};
+    const getXF = (fillId,fontId) => {
+      const k=`${fillId}|${fontId}`;
+      if(k in xfMap)return xfMap[k];
+      xfMap[k]=xfs.length;
+      xfs.push({fillId,fontId,applyFill:fillId>0?1:0,applyFont:fontId>0?1:0});
+      return xfs.length-1;
+    };
+
+    // First pass: collect all styles
+    const cellData = rows.map((row,r)=>row.map((cell,c)=>{
+      if(cell===null||cell===undefined) return null;
+      const v = typeof cell==='object' ? cell.v : cell;
+      const bg = typeof cell==='object' ? cell.bg : null;
+      const fg = typeof cell==='object' ? cell.fg : null;
+      const bold = typeof cell==='object' ? cell.bold : false;
+      const sz = typeof cell==='object' ? (cell.sz||8) : 8;
+      const fillId = getFill(bg);
+      const fontId = getFont(bold,sz,fg);
+      const xfId = getXF(fillId,fontId);
+      const isNum = typeof v==='number';
+      const si = isNum ? null : getSI(v===''?'':v);
+      return {v,bg,fg,bold,sz,fillId,fontId,xfId,isNum,si,addr:cellAddr(r,c)};
+    }));
+
+    // Build XML parts
+    const fillsXml = [
+      '<fills count="'+fills.length+'">',
+      '<fill><patternFill patternType="none"/></fill>',
+      '<fill><patternFill patternType="gray125"/></fill>',
+      ...fills.slice(2).map(rgb=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${rgb}"/><bgColor indexed="64"/></patternFill></fill>`),
+      '</fills>'
+    ].join('');
+
+    const fontsXml = [
+      '<fonts count="'+fonts.length+'">',
+      '<font><sz val="8"/><name val="Calibri"/></font>',
+      ...fonts.slice(1).map(f=>`<font>${f.bold?'<b/>':''}<sz val="${f.sz||8}"/>${f.color?`<color rgb="FF${f.color}"/>`:'<color theme="1"/>'}<name val="Calibri"/></font>`),
+      '</fonts>'
+    ].join('');
+
+    const xfsXml = [
+      '<cellXfs count="'+xfs.length+'">',
+      ...xfs.map(x=>`<xf numFmtId="0" fontId="${x.fontId}" fillId="${x.fillId}" borderId="0" xfId="0"${x.applyFill?` applyFill="1"`:''}${x.applyFont?` applyFont="1"`:''}><alignment horizontal="center" vertical="center"/></xf>`),
+      '</cellXfs>'
+    ].join('');
+
+    const styleXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="0"/>
+${fontsXml}
+${fillsXml}
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+${xfsXml}
+</styleSheet>`;
+
+    const ssXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sharedStrings.length}" uniqueCount="${sharedStrings.length}">
+${sharedStrings.map(s=>`<si><t xml:space="preserve">${esc(s)}</t></si>`).join('')}
+</sst>`;
+
+    const colsXml = colWidths.length ? '<cols>'+colWidths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')+'</cols>' : '';
+
+    const sheetRows = cellData.map((row,r)=>{
+      const cells = row.map((cell,c)=>{
+        if(!cell) return '';
+        if(cell.v===''||cell.v===null||cell.v===undefined) return `<c r="${cell.addr}" s="${cell.xfId}"/>`;
+        if(cell.isNum) return `<c r="${cell.addr}" s="${cell.xfId}"><v>${cell.v}</v></c>`;
+        return `<c r="${cell.addr}" t="s" s="${cell.xfId}"><v>${cell.si}</v></c>`;
+      }).join('');
+      return `<row r="${r+1}">${cells}</row>`;
+    }).join('');
+
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+${colsXml}
+<sheetData>${sheetRows}</sheetData>
+</worksheet>`;
+
+    return {sheetXml, styleXml, ssXml};
+  }
+
+  return {build: buildXLSX, colLetter, cellAddr};
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
-<script src="jsQR.js"></script>
 <style>
 :root{
   --bg:#111016;--s1:#1c1a28;--s2:#252336;--s3:#2e2b44;
@@ -145,6 +264,8 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   cursor:pointer;transition:all .12s;border:1px solid transparent;
   position:relative;user-select:none;min-height:54px;
+  -webkit-touch-callout:none;
+  touch-action:manipulation;
 }
 .sc-id{font-family:'Space Mono',monospace;font-size:.55rem;font-weight:700;line-height:1;}
 .sc-name{font-size:.48rem;color:inherit;opacity:.75;text-align:center;line-height:1.2;max-width:54px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
@@ -281,10 +402,16 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
     </div>
 
     <div class="card">
-      <div class="card-title">📋 Bulk Import (sticker IDs, comma/space separated)</div>
-      <textarea class="bta" id="bulk" rows="3" placeholder="ALG-1, ALG-3, ARG-17, CC1, FWC-3..."></textarea>
+      <div class="card-title">📁 Import / Export</div>
+      <div class="row" style="margin-bottom:8px;">
+        <button class="btn btn-p" id="export-btn" onclick="exportXLSX()" style="display:none">📥 Export .xlsx</button>
+        <button class="btn btn-s" onclick="document.getElementById('xlsx-import-input').click()">📤 Import .xlsx</button>
+      </div>
+      <input type="file" id="xlsx-import-input" accept=".xlsx" style="display:none" onchange="importXLSX(event)">
+      <div class="card-title" style="margin-top:8px;">📋 Bulk Text Import</div>
+      <textarea class="bta" id="bulk" rows="2" placeholder="ALG-1, ALG-3, ARG-17, CC1, FWC-3..."></textarea>
       <div class="row" style="margin-top:7px;">
-        <button class="btn btn-s" onclick="bulkImport()">Import</button>
+        <button class="btn btn-s" onclick="bulkImport()">Import Text</button>
         <button class="btn btn-d" onclick="doReset()">Reset All</button>
       </div>
     </div>
@@ -360,9 +487,11 @@ header{position:relative;z-index:10;padding:12px 16px 0;flex-shrink:0;}
     <div class="remove-sheet-title">Remove sticker?</div>
     <div class="remove-sheet-id" id="rs-id"></div>
     <div class="remove-sheet-sub" id="rs-name"></div>
-    <div class="row" style="margin-top:14px;">
-      <button class="btn btn-d" onclick="confirmRemove()">Remove one copy</button>
-      <button class="btn btn-s" onclick="closeRemoveSheet()">Cancel</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
+      <button class="btn btn-d" style="width:100%" onclick="confirmRemove('one')">Remove one copy</button>
+      <button class="btn btn-d" style="width:100%;opacity:.8" onclick="confirmRemove('dupes')">Remove all duplicates</button>
+      <button class="btn btn-d" style="width:100%;opacity:.6" onclick="confirmRemove('all')">Remove all copies</button>
+      <button class="btn btn-s" style="width:100%;margin-top:4px;" onclick="closeRemoveSheet()">Cancel</button>
     </div>
   </div>
 </div>
@@ -987,13 +1116,8 @@ function renderGrid(){
       html += `<div class="${cls}"${dup?` data-c="${c}"`:''}
         data-id="${id}"
         title="${s.id}: ${s.name}${s.holo?' ✨ Hologram':''}"
-        onclick="cellTap('${id}',this)"
-        onmousedown="startLongPress(event,'${id}')"
-        onmouseup="cancelLongPress()"
-        onmouseleave="cancelLongPress()"
-        ontouchstart="startLongPress(event,'${id}')"
-        ontouchend="cancelLongPress()"
-        ontouchmove="cancelLongPress()"
+        onclick="handleCellClick('${id}',this)"
+        oncontextmenu="return false"
       >
         <div class="sc-id">${shortId}</div>
         <div class="sc-name">${s.name}</div>
@@ -1007,8 +1131,6 @@ function renderGrid(){
 }
 
 function cellTap(id, el){
-  // Don't fire if coming from long press
-  if(el._longFired) { el._longFired=false; return; }
   col[id] = (col[id]||0)+1;
   save(); updateStats();
   el.classList.add('pop');
@@ -1020,40 +1142,61 @@ function cellTap(id, el){
   if(isActive('dupes')) renderDupes();
 }
 
-// ─── LONG PRESS ───────────────────────────────
-let lpTimer = null;
-function startLongPress(e, id){
-  const el = e.currentTarget;
-  if(e.type==='touchstart') e.preventDefault();
-  el._longFired = false;
-  cancelLongPress();
-  el.classList.add('pressing');
-  lpTimer = setTimeout(()=>{
-    el._longFired = true;
-    el.classList.remove('pressing');
+// ─── DOUBLE TAP to open remove sheet ─────────────────────────
+let dtTimer = null;
+let dtLast  = 0;
+
+function handleCellClick(id, el){
+  const now = Date.now();
+  const gap = now - dtLast;
+  dtLast = now;
+
+  if(gap < 350){
+    // Double tap — open remove sheet
+    clearTimeout(dtTimer);
+    dtTimer = null;
+    if(navigator.vibrate) navigator.vibrate(40);
     openRemoveSheet(id);
-  }, 600);
+  } else {
+    // First tap — wait to see if second tap follows
+    clearTimeout(dtTimer);
+    dtTimer = setTimeout(()=>{
+      dtTimer = null;
+      cellTap(id, el);
+    }, 360);
+  }
 }
-function cancelLongPress(){
-  clearTimeout(lpTimer); lpTimer=null;
-  document.querySelectorAll('.sc.pressing').forEach(el=>el.classList.remove('pressing'));
-}
+
+function lpCancel(){ /* no-op, kept for compatibility */ }
+function startLongPress(){ /* no-op */ }
+function cancelLongPress(){ /* no-op */ }
 function openRemoveSheet(id){
   if(!col[id]||col[id]<=0){ toast('Not in your collection','warn'); return; }
   const info = STICKER_MAP[id];
   removeTarget = id;
   document.getElementById('rs-id').textContent = id + (info.holo?' ✨':'');
-  document.getElementById('rs-name').textContent = info.name + ' — ' + (TEAMS.find(t=>t.key===info.team)||{label:info.team}).label;
+  const count = col[id]||0;
+  const countLabel = count === 1 ? '1 copy' : `${count} copies`;
+  document.getElementById('rs-name').textContent = info.name + ' — ' + (TEAMS.find(t=>t.key===info.team)||{label:info.team}).label + ` (${countLabel})`;
   document.getElementById('remove-overlay').classList.add('show');
 }
 function closeRemoveSheet(){ document.getElementById('remove-overlay').classList.remove('show'); removeTarget=null; }
-function confirmRemove(){
+function confirmRemove(mode){
   if(!removeTarget) return;
   const id = removeTarget;
-  col[id]--;
-  if(col[id]<=0) delete col[id];
+  const count = col[id]||0;
+  if(mode==='one'){
+    col[id]--;
+    if(col[id]<=0) delete col[id];
+    toast(`Removed one ${id}`,'info');
+  } else if(mode==='dupes'){
+    if(count>1){ col[id]=1; toast(`Kept 1, removed ${count-1} dupes of ${id}`,'info'); }
+    else { toast('No duplicates to remove','warn'); closeRemoveSheet(); return; }
+  } else if(mode==='all'){
+    delete col[id];
+    toast(`Removed all copies of ${id}`,'info');
+  }
   save(); updateStats();
-  toast(`Removed ${id}`, 'info');
   closeRemoveSheet();
   renderGrid();
   if(isActive('dupes')) renderDupes();
@@ -1110,7 +1253,6 @@ function copyDupes(){
 // ═══════════════════════════════════════════════════════════
 function bulkImport(){
   const txt = document.getElementById('bulk').value;
-  // Match IDs like ALG-1, CC14, FWC-3, 00
   const matches = [...txt.matchAll(/\b([A-Z]{2,3}-?\d{1,2}|CC\d{1,2}|00)\b/gi)];
   const ids = matches.map(m=>m[0].toUpperCase()).filter(id=>STICKER_MAP[id]);
   if(!ids.length){ toast('No valid sticker IDs found','warn'); return; }
@@ -1126,6 +1268,322 @@ function doReset(){
   if(!confirm('Reset ALL progress? This cannot be undone.')) return;
   col={}; save(); updateStats(); renderGrid(); renderDupes();
   toast('Collection reset','warn');
+}
+
+// ═══════════════════════════════════════════════════════════
+// XLSX TEAM ROW ORDER (matches official template)
+// ═══════════════════════════════════════════════════════════
+const XLSX_ROWS = [
+  ['Special',   ['00']],
+  ['Coca Cola', [...Array(14)].map((_,i)=>`CC${i+1}`)],
+  ['FWC',       [...Array(19)].map((_,i)=>`FWC-${i+1}`)],
+  ['MEX','RSA','KOR','CZE','CAN','BIH','QAT','SUI','BRA','MAR',
+   'HAI','SCO','USA','PAR','AUS','TUR','GER','CUW','CIV','ECU',
+   'NED','JPN','SWE','TUN','BEL','EGY','IRN','NZL','ESP','CPV',
+   'KSA','URU','FRA','SEN','IRQ','NOR','ARG','ALG','AUT','JOR',
+   'POR','COD','UZB','COL','ENG','CRO','GHA','PAN'
+  ].map(t=>[t, [...Array(20)].map((_,i)=>`${t}-${i+1}`)]),
+].flat();
+
+// ── SAVE FILE helper — works in both browser and Capacitor ──
+async function saveFile(content, filename, mimeType){
+  // Try Capacitor Filesystem plugin (works in WebView)
+  const FS = window.Capacitor?.Plugins?.Filesystem;
+  const Share = window.Capacitor?.Plugins?.Share;
+
+  if(FS){
+    try{
+      // Convert content to base64
+      let base64;
+      if(content instanceof Blob){
+        const buf = await content.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary='';
+        bytes.forEach(b=>binary+=String.fromCharCode(b));
+        base64 = btoa(binary);
+      } else {
+        base64 = btoa(unescape(encodeURIComponent(content)));
+      }
+
+      // Save to cache directory
+      const result = await FS.writeFile({
+        path: filename,
+        data: base64,
+        directory: 'CACHE',
+        recursive: true
+      });
+
+      // Share the file (opens Android share sheet → user picks Save/Drive/WhatsApp etc)
+      if(Share){
+        await Share.share({
+          title: filename,
+          url: result.uri,
+          dialogTitle: 'Save or share your sticker file'
+        });
+      } else {
+        toast(`Saved: ${filename}`,'ok');
+      }
+      return;
+    }catch(e){
+      console.warn('Capacitor FS failed, trying browser download:', e);
+    }
+  }
+
+  // Browser fallback
+  const url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content],{type:mimeType}));
+  const a = document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+async function exportXLSX(){
+  if(!window.JSZip){ exportCSV(); toast('Exported as CSV (JSZip not loaded)','warn'); return; }
+
+  const GREEN='92D050',YELLOW='FFFF00',RED='FF4444',GREY='D9D9D9',DKBLUE='1F4E79',BLUE='2E75B6',WHITE='FFFFFF';
+  const hdr=[{v:'Team',bg:DKBLUE,fg:WHITE,bold:true,sz:9},...[...Array(20)].map((_,i)=>({v:String(i+1),bg:DKBLUE,fg:WHITE,bold:true,sz:9})),{v:'GOT',bg:DKBLUE,fg:WHITE,bold:true,sz:9},{v:'MISS',bg:DKBLUE,fg:WHITE,bold:true,sz:9}];
+  const dataRows=[hdr];
+
+  for(const [teamLabel,ids] of XLSX_ROWS){
+    const row=[{v:teamLabel,bg:BLUE,fg:WHITE,bold:true,sz:9}];
+    let got=0;
+    for(const sid of ids){
+      const c=col[sid]||0;
+      if(c===0) row.push({v:'',bg:GREY,sz:8});
+      else if(c===1){row.push({v:'✓',bg:GREEN,sz:9,bold:true});got++;}
+      else if(c===2){row.push({v:'×2',bg:YELLOW,sz:8,bold:true});got++;}
+      else{row.push({v:`×${c}`,bg:RED,fg:WHITE,sz:8,bold:true});got++;}
+    }
+    while(row.length<21) row.push({v:'',bg:'F2F2F2',sz:8});
+    row.push({v:got,bold:true,sz:8,fg:got>0?'1F6B2E':'333333'});
+    row.push({v:ids.length-got,bold:true,sz:8,fg:(ids.length-got)>0?'C00000':'333333'});
+    dataRows.push(row);
+  }
+
+  const colWidths=[12,...Array(20).fill(5.5),5,5];
+  const {sheetXml,styleXml,ssXml}=XLSXWriter.build(dataRows,colWidths);
+
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
+  zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="My Panini WC 2026" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+  zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  zip.file('xl/worksheets/sheet1.xml',sheetXml);
+  zip.file('xl/styles.xml',styleXml);
+  zip.file('xl/sharedStrings.xml',ssXml);
+
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const date=new Date().toISOString().slice(0,10);
+  await saveFile(blob, `panini-wc2026-${date}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  toast('Excel exported! ✓','ok');
+}
+
+// ── EXPORT CSV (no-dependency fallback) ──────────────────────
+async function exportCSV(){
+  const lines=['Team,'+[...Array(20)].map((_,i)=>i+1).join(',')+',GOT,MISS'];
+  for(const [teamLabel,ids] of XLSX_ROWS){
+    const cells=[teamLabel]; let got=0;
+    for(const sid of ids){
+      const c=col[sid]||0;
+      if(c===0) cells.push('');
+      else if(c===1){cells.push('OK');got++;}
+      else{cells.push(`x${c}`);got++;}
+    }
+    while(cells.length<21) cells.push('');
+    cells.push(got,ids.length-got);
+    lines.push(cells.join(','));
+  }
+  const date=new Date().toISOString().slice(0,10);
+  await saveFile(lines.join('\n'), `panini-wc2026-${date}.csv`, 'text/csv');
+  toast('CSV exported!','ok');
+}
+
+// ── IMPORT — handles XLSX (JSZip) + CSV ──────────────────────
+function importXLSX(e){
+  const file=e.target.files[0]; if(!file) return;
+  e.target.value='';
+  const name=file.name.toLowerCase();
+  if(name.endsWith('.csv')||name.endsWith('.txt')){
+    const reader=new FileReader();
+    reader.onload=ev=>importFromCSV(ev.target.result);
+    reader.readAsText(file); return;
+  }
+  if(!window.JSZip){ toast('JSZip not loaded — use CSV instead','err'); return; }
+  toast('Reading Excel…','info');
+  const reader=new FileReader();
+  reader.onerror=()=>toast('Could not read file','err');
+  reader.onload=ev=>importFromXLSXBuffer(ev.target.result);
+  reader.readAsArrayBuffer(file);
+}
+
+async function importFromXLSXBuffer(buffer){
+  try{
+    const zip=await JSZip.loadAsync(buffer);
+
+    // Get shared strings
+    const ssFile=zip.file('xl/sharedStrings.xml');
+    const ssXml=ssFile?await ssFile.async('string'):'';
+    const ss=[];
+    const siRe=/<si>[\s\S]*?<\/si>/g;
+    const tRe=/<t[^>]*>([^<]*)<\/t>/g;
+    let m;
+    while((m=siRe.exec(ssXml))!==null){
+      let text='',tm; const siStr=m[0];
+      tRe.lastIndex=0;
+      while((tm=tRe.exec(siStr))!==null) text+=tm[1];
+      ss.push(text.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#xD;/g,''));
+    }
+
+    // Get styles to decode fill colors
+    const stylesFile=zip.file('xl/styles.xml');
+    const stylesXml=stylesFile?await stylesFile.async('string'):'';
+
+    // Parse fills: index -> rgb color
+    const fills=[];
+    const fillRe=/<fill>([\s\S]*?)<\/fill>/g;
+    const fgRe=/<fgColor\s+rgb="([0-9A-Fa-f]{6,8})"/;
+    while((m=fillRe.exec(stylesXml))!==null){
+      const fg=fgRe.exec(m[1]);
+      fills.push(fg?fg[1].slice(-6):null); // last 6 chars = RGB without alpha
+    }
+
+    // Parse xfs (cell formats): index -> fillId
+    const xfFills=[];
+    const cellXfsM=/<cellXfs[^>]*>([\s\S]*?)<\/cellXfs>/.exec(stylesXml);
+    if(cellXfsM){
+      const xfRe=/<xf[^>]*fillId="(\d+)"[^>]*/g;
+      while((m=xfRe.exec(cellXfsM[1]))!==null) xfFills.push(parseInt(m[1]));
+    }
+
+    // Color classification (matches template colors)
+    const GREEN_COLORS  = new Set(['B6D7A8','93C47D','6AA84F']);
+    const YELLOW_COLORS = new Set(['F9CB9C','FFE599','FCE5CD','F6B26B']);
+    const RED_COLORS    = new Set(['E69138','E06666','CC4125','FF6D00']);
+
+    function getColorClass(styleIdx){
+      const fillId = xfFills[styleIdx];
+      if(fillId===undefined) return 'none';
+      const rgb = fills[fillId];
+      if(!rgb) return 'none';
+      const upper = rgb.toUpperCase();
+      if(GREEN_COLORS.has(upper))  return 'green';
+      if(YELLOW_COLORS.has(upper)) return 'yellow';
+      if(RED_COLORS.has(upper))    return 'red';
+      return 'none';
+    }
+
+    // Parse cells from sheet XML -> grid with value + color
+    function parseSheet(sheetXml){
+      const colIdx=s=>{let n=0;for(const c of s)n=n*26+(c.charCodeAt(0)-64);return n-1;};
+      const rowRe=/<row[^>]*>([\s\S]*?)<\/row>/g;
+      const cellRe=/<c r="([A-Z]+)\d+"([^>]*)>([\s\S]*?)<\/c>|<c r="([A-Z]+)\d+"([^>]*)\/>/g;
+      const valRe=/<v>([^<]*)<\/v>/;
+      const sRe=/\bs="(\d+)"/;
+      const grid=[];
+      let rm;
+      while((rm=rowRe.exec(sheetXml))!==null){
+        const rowCells={};let cm;
+        cellRe.lastIndex=0;
+        while((cm=cellRe.exec(rm[1]))!==null){
+          const colStr=cm[1]||cm[4];
+          const attrs=cm[2]||cm[5]||'';
+          const inner=cm[3]||'';
+          const vm=valRe.exec(inner);
+          const sm=sRe.exec(attrs);
+          const styleIdx=sm?parseInt(sm[1]):0;
+          const colorClass=getColorClass(styleIdx);
+          const isStr=/t="s"/.test(attrs);
+          const val=vm?(isStr?(ss[parseInt(vm[1])]||''):vm[1]):'';
+          rowCells[colIdx(colStr)]={v:val, color:colorClass};
+        }
+        grid.push(rowCells);
+      }
+      return grid;
+    }
+
+    // Find sheet with most OK cells
+    const sheetFiles=Object.keys(zip.files)
+      .filter(k=>/xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort();
+
+    let bestGrid=null, bestOKs=0;
+    for(const key of sheetFiles){
+      const xml=await zip.file(key).async('string');
+      const grid=parseSheet(xml);
+      const okCount=grid.reduce((t,row)=>
+        t+Object.values(row).filter(c=>String(c.v||'').trim().toUpperCase()==='OK').length,0);
+      if(okCount>bestOKs){bestOKs=okCount;bestGrid=grid;}
+    }
+
+    if(!bestGrid||bestOKs===0){
+      toast('No collected stickers found — fill in the template first','warn'); return;
+    }
+
+    importFromGrid(bestGrid);
+  }catch(err){
+    console.error('XLSX parse error:',err);
+    toast('Could not parse xlsx — try CSV instead','err');
+  }
+}
+
+function importFromCSV(text){
+  toast('Reading CSV…','info');
+  const grid=text.split(/\r?\n/).filter(Boolean).map(line=>{
+    const cells={};let c=0;
+    line.split(',').forEach(v=>{cells[c++]={v:v.trim(),color:'none'};});
+    return cells;
+  });
+  importFromGrid(grid);
+}
+
+function importFromGrid(grid){
+  const teamMap={};
+  for(const [label,ids] of XLSX_ROWS){
+    teamMap[label.toUpperCase()]=ids;
+    if(label==='Coca Cola'){teamMap['COCA COLA']=ids;}
+    if(label==='Special'){teamMap['PANINI']=ids;teamMap['WE ARE PANINI']=ids;}
+  }
+  let imported=0,updated=0,foundTeams=0;
+  const newCol={...col};
+
+  for(const rowCells of grid){
+    const cell0=rowCells[0];
+    const teamLabel=String(cell0&&typeof cell0==='object'?cell0.v:cell0||'').trim().toUpperCase();
+    const ids=teamMap[teamLabel];
+    if(!ids) continue;
+    foundTeams++;
+
+    for(let c=0;c<ids.length;c++){
+      const sid=ids[c];
+      if(!STICKER_MAP[sid]) continue;
+
+      const cell=rowCells[c+1];
+      // cell can be {v, color} (from xlsx with styles) or plain string (from csv)
+      const raw=String(cell&&typeof cell==='object'?cell.v:cell||'').trim();
+      const color=cell&&typeof cell==='object'?cell.color:'none';
+      const lo=raw.toLowerCase();
+
+      // Determine count from color first (most reliable for this template),
+      // then fall back to text value
+      let count=0;
+      if(color==='green')       count=1;
+      else if(color==='yellow') count=2;
+      else if(color==='red')    count=3;
+      else if(raw==='✓'||lo==='ok') count=1;
+      else if(/^[×x]\d+$/i.test(raw)) count=parseInt(raw.match(/\d+/)[0])||2;
+      else if(/^ok\s*x?\d+$/i.test(lo)) count=parseInt(lo.match(/\d+/)[0])||2;
+
+      if(count>0){
+        if(!newCol[sid]) imported++;
+        else if(count>(newCol[sid]||0)) updated++;
+        newCol[sid]=Math.max(newCol[sid]||0,count);
+      }
+    }
+  }
+
+  if(foundTeams===0){toast('No team rows found — check file format','warn');return;}
+  col=newCol; save(); updateStats();
+  if(isActive('album')) renderGrid();
+  if(isActive('dupes')) renderDupes();
+  toast(`Imported ${imported} new + ${updated} updated from ${foundTeams} teams ✓`,'ok');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1443,6 +1901,11 @@ load();
 initTeamSel();
 updateStats();
 initAds();
+
+// Show export button only when running as native app (Capacitor)
+if(window.Capacitor?.isNativePlatform?.() || window.Capacitor?.isNative){
+  document.getElementById('export-btn').style.display='';
+}
 </script>
 </body>
 </html>
